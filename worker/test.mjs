@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import worker from './src/index.js';
 
-const ENV = { TWEAKTOOLS_TOKEN: 'secreto', META_TOKEN: 'meta', WABA_PHONE_ID: '123' };
+const ENV = { SIDEKICK_TOKEN: 'secreto', META_TOKEN: 'meta', WABA_PHONE_ID: '123' };
 const realFetch = globalThis.fetch;
 let lastBody = null;
 globalThis.fetch = async (_url, opts) => {
@@ -16,7 +16,7 @@ const post = (body, { token = 'secreto', env = ENV } = {}) =>
   worker.fetch(
     new Request('https://x/', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-tweaktools-token': token },
+      headers: { 'content-type': 'application/json', 'x-sidekick-token': token },
       body: JSON.stringify(body),
     }),
     env,

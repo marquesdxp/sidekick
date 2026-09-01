@@ -1,5 +1,5 @@
 /*
- * TweakTools - Cloudflare Worker que reenvia mensajes a la WhatsApp Cloud API.
+ * Sidekick - Cloudflare Worker que reenvia mensajes a la WhatsApp Cloud API.
  *
  * Cada usuario despliega SU PROPIO Worker con SUS PROPIOS secretos. En este
  * repositorio no hay ninguna credencial, ni ninguna URL de despliegue: ese es
@@ -7,7 +7,7 @@
  * viaje wrangler.toml.example.
  *
  * Secretos esperados (wrangler secret put ...):
- *   TWEAKTOOLS_TOKEN  token compartido que el panel manda en x-tweaktools-token
+ *   SIDEKICK_TOKEN  token compartido que el panel manda en x-sidekick-token
  *   META_TOKEN        token de acceso permanente de la app de Meta
  *   WABA_PHONE_ID     ID del numero de telefono emisor de WhatsApp Business
  */
@@ -19,7 +19,7 @@ const CORS = {
   // El panel CEP corre sobre file://, asi que su Origin llega como "null" y no
   // se puede acotar por dominio. Lo que autoriza de verdad es el token.
   'access-control-allow-origin': '*',
-  'access-control-allow-headers': 'content-type, x-tweaktools-token',
+  'access-control-allow-headers': 'content-type, x-sidekick-token',
   'access-control-allow-methods': 'POST, OPTIONS',
 };
 
@@ -45,10 +45,10 @@ export default {
     if (request.method === 'OPTIONS') { return new Response(null, { status: 204, headers: CORS }); }
     if (request.method !== 'POST') { return json(405, { error: 'Solo POST.' }); }
 
-    for (const name of ['TWEAKTOOLS_TOKEN', 'META_TOKEN', 'WABA_PHONE_ID']) {
+    for (const name of ['SIDEKICK_TOKEN', 'META_TOKEN', 'WABA_PHONE_ID']) {
       if (!env[name]) { return json(500, { error: `Falta el secreto ${name} en el Worker.` }); }
     }
-    if (!tokenMatches(request.headers.get('x-tweaktools-token'), env.TWEAKTOOLS_TOKEN)) {
+    if (!tokenMatches(request.headers.get('x-sidekick-token'), env.SIDEKICK_TOKEN)) {
       return json(401, { error: 'Token invalido.' });
     }
 

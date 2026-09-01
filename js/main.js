@@ -1,12 +1,16 @@
 /*
- * TweakTools - logica del panel.
+ * Sidekick - logica del panel.
  *
  * Proyecto independiente. Sin relacion con Postline ni codigo compartido con el.
  */
 import { host } from './cep.js';
 import { DEFAULTS, initWatch, stepWatch } from './watcher.js';
+import {
+  base64ToBlob, blobToBase64, copyImage, imageFromPasteEvent, pastedFilename,
+  readFileBase64, readImage, writeFileBase64,
+} from './clipboard.js';
 
-const CFG_KEY = 'tweaktools.config';
+const CFG_KEY = 'sidekick.config';
 const $ = (id) => document.getElementById(id);
 
 /* --- Configuracion local ------------------------------------------------ *
@@ -53,7 +57,7 @@ async function sendWhatsApp(text) {
 
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-tweaktools-token': token },
+    headers: { 'content-type': 'application/json', 'x-sidekick-token': token },
     body: JSON.stringify({ to, text }),
   });
   const body = await res.json().catch(() => ({}));
@@ -158,32 +162,7 @@ async function startNotify() {
   }
 }
 
-/* --- Portapapeles -------------------------------------------------------- */
-
-/* navigator.clipboard existe en CEF pero readText puede quedarse sin permiso
- * segun la version de Premiere; execCommand sobre el textarea es el plan B. */
-async function readClipboard() {
-  try {
-    const t = await navigator.clipboard.readText();
-    if (t) { return t; }
-  } catch { /* sin permiso: seguimos con el plan B */ }
-  const box = $('clipbox');
-  box.value = '';
-  box.focus();
-  document.execCommand('paste');
-  return box.value;
-}
-
-async function writeClipboard(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return;
-  } catch { /* plan B */ }
-  const box = $('clipbox');
-  box.focus();
-  box.select();
-  document.execCommand('copy');
-}
+/* --- Portapapeles de imagen --------------------------------------------- */
 
 function setClipStatus(msg, cls = 'muted') {
   const el = $('clipStatus');
@@ -191,24 +170,41 @@ function setClipStatus(msg, cls = 'muted') {
   el.className = cls;
 }
 
-async function copyMarkers() {
+function preview(blob) {
+  const img = $('preview');
+  URL.revokeObjectURL(img.src);
+  img.src = URL.createObjectURL(blob);
+  img.hidden = false;
+}
+
+/* Fotograma bajo el cursor -> portapapeles del sistema. */
+async function copyFrame() {
   try {
-    const [count, text] = await host('ttMarkersToText');
-    $('clipbox').value = text || '';
-    await writeClipboard(text || '');
-    setClipStatus(`${count} marcador(es) en el portapapeles.`);
+    setClipStatus('Exportando el fotograma…');
+    const [path] = await host('skExportFrame');
+    const blob = base64ToBlob(readFileBase64(path), 'image/png');
+    window.cep.fs.deleteFile(path); // el PNG temporal ya vive en el portapapeles
+    await copyImage(blob);
+    preview(blob);
+    setClipStatus('Fotograma copiado. Pégalo donde quieras.');
   } catch (err) {
     setClipStatus(err.message, 'err');
   }
 }
 
-async function pasteMarkers() {
+/* Imagen del portapapeles -> secuencia activa. */
+async function pasteImage(blob) {
   try {
-    const text = (await readClipboard()) || $('clipbox').value;
-    if (!text.trim()) { throw new Error('El portapapeles está vacío.'); }
-    $('clipbox').value = text;
-    const [added] = await host('ttMarkersFromText', text);
-    setClipStatus(`${added} marcador(es) creados en la secuencia activa.`);
+    if (!blob) { throw new Error('No hay ninguna imagen en el portapapeles.'); }
+    setClipStatus('Guardando la imagen junto al proyecto…');
+    // La carpeta la decide host.jsx: junto al .prproj, nunca en el temporal del
+    // sistema, porque Premiere queda enlazado a este fichero para siempre.
+    const [dir] = await host('skPasteDir');
+    const path = `${dir}/${pastedFilename(blob.type)}`;
+    writeFileBase64(path, await blobToBase64(blob));
+    const [name, track] = await host('skImportImage', path);
+    preview(blob);
+    setClipStatus(`«${name}» colocado en V${track}.`);
   } catch (err) {
     setClipStatus(err.message, 'err');
   }
@@ -220,7 +216,7 @@ async function pasteMarkers() {
  * cambia el cliente al que hay que avisar. Se relee al recuperar el foco. */
 async function refreshContext() {
   try {
-    const [proj, seq] = await host('ttGetContext');
+    const [proj, seq] = await host('skGetContext');
     if (proj === project) { return; }
     if (timer) { stopWatching('Vigilancia detenida: has cambiado de proyecto.', 'warn'); }
     project = proj;
@@ -253,12 +249,26 @@ $('pickWatch').addEventListener('click', () => {
 });
 $('go').addEventListener('click', startNotify);
 $('stop').addEventListener('click', () => stopWatching('Vigilancia detenida.', 'warn'));
-$('copyMk').addEventListener('click', copyMarkers);
-$('pasteMk').addEventListener('click', pasteMarkers);
+$('copyFrame').addEventListener('click', copyFrame);
+$('pasteImg').addEventListener('click', async () => {
+  try {
+    await pasteImage(await readImage());
+  } catch {
+    // navigator.clipboard.read puede quedarse sin permiso segun la version de
+    // Premiere; con Cmd+V sobre el panel el evento paste siempre llega.
+    setClipStatus('No puedo leer el portapapeles desde el botón. Pulsa Cmd+V (Ctrl+V) con el panel enfocado.', 'warn');
+  }
+});
+document.addEventListener('paste', (e) => {
+  const blob = imageFromPasteEvent(e);
+  if (!blob) { return; }
+  e.preventDefault();
+  pasteImage(blob);
+});
 $('test').addEventListener('click', async () => {
   const el = $('cfgStatus');
   try {
-    await sendWhatsApp('Mensaje de prueba de TweakTools.');
+    await sendWhatsApp('Mensaje de prueba de Sidekick.');
     el.textContent = 'Enviado. Míralo en WhatsApp.';
     el.className = 'muted';
   } catch (err) {

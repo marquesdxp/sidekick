@@ -1,5 +1,5 @@
 # Copia este fichero a wrangler.toml (que esta en .gitignore) y edita el nombre.
-name = "tweaktools-whatsapp"
+name = "sidekick-whatsapp"
 main = "src/index.js"
 compatibility_date = "2026-01-01"
 
@@ -9,6 +9,6 @@ compatibility_date = "2026-01-01"
 # ALLOWED_NUMBERS = "34600111222"
 
 # Los tres secretos NO van aqui. Se suben con:
-#   npx wrangler secret put TWEAKTOOLS_TOKEN
+#   npx wrangler secret put SIDEKICK_TOKEN
 #   npx wrangler secret put META_TOKEN
 #   npx wrangler secret put WABA_PHONE_ID

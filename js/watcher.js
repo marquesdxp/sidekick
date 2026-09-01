@@ -1,5 +1,5 @@
 /*
- * TweakTools - deteccion de "el fichero ha terminado de generarse".
+ * Sidekick - deteccion de "el fichero ha terminado de generarse".
  *
  * Ni Premiere ni Media Encoder avisan a un panel de un export que no ha lanzado
  * el, asi que se vigila la carpeta de salida. La heuristica es la de siempre:

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ExtensionList>
-  <Extension Id="com.andersonmarques.tweaktools.panel">
+  <Extension Id="com.andersonmarques.sidekick.panel">
     <HostList>
       <Host Name="PPRO" Port="8099"/>
     </HostList>

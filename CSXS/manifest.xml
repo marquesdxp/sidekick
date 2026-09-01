@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ExtensionManifest Version="12.0" ExtensionBundleId="com.andersonmarques.tweaktools"
-                   ExtensionBundleVersion="0.1.0" ExtensionBundleName="TweakTools"
+<ExtensionManifest Version="12.0" ExtensionBundleId="com.andersonmarques.sidekick"
+                   ExtensionBundleVersion="0.1.0" ExtensionBundleName="Sidekick"
                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <ExtensionList>
-    <Extension Id="com.andersonmarques.tweaktools.panel" Version="0.1.0"/>
+    <Extension Id="com.andersonmarques.sidekick.panel" Version="0.1.0"/>
   </ExtensionList>
   <ExecutionEnvironment>
     <HostList>
@@ -15,7 +15,7 @@
     </RequiredRuntimeList>
   </ExecutionEnvironment>
   <DispatchInfoList>
-    <Extension Id="com.andersonmarques.tweaktools.panel">
+    <Extension Id="com.andersonmarques.sidekick.panel">
       <DispatchInfo>
         <Resources>
           <MainPath>./index.html</MainPath>
@@ -28,7 +28,7 @@
         <Lifecycle><AutoVisible>true</AutoVisible></Lifecycle>
         <UI>
           <Type>Panel</Type>
-          <Menu>TweakTools</Menu>
+          <Menu>Sidekick</Menu>
           <Geometry>
             <Size><Height>560</Height><Width>340</Width></Size>
             <MinSize><Height>320</Height><Width>280</Width></MinSize>

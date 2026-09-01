@@ -1,15 +1,15 @@
 <meta charset="utf-8">
-<title>TweakTools</title>
+<title>Sidekick</title>
 <link rel="stylesheet" href="css/style.css">
 
 <header>
-  <h1>TweakTools</h1>
+  <h1>Sidekick</h1>
   <span id="ctx" class="muted">—</span>
 </header>
 
 <nav class="tabs">
   <button class="tab is-on" data-tab="notify">Aviso</button>
-  <button class="tab" data-tab="clip">Portapapeles</button>
+  <button class="tab" data-tab="clip">Imagen</button>
   <button class="tab" data-tab="cfg">Ajustes</button>
 </nav>
 
@@ -25,12 +25,13 @@
 </section>
 
 <section data-panel="clip" hidden>
-  <p class="muted">Marcadores de la secuencia activa, como texto tabulado
-    (<code>inicio ⇥ fin ⇥ nombre ⇥ comentario</code>).</p>
-  <button id="copyMk">Copiar marcadores al portapapeles</button>
-  <button id="pasteMk">Pegar marcadores desde el portapapeles</button>
-  <textarea id="clipbox" rows="8" spellcheck="false" placeholder="Lo copiado/pegado aparece aquí."></textarea>
-  <p id="clipStatus" class="muted">—</p>
+  <button id="copyFrame" class="primary">Copiar el fotograma actual</button>
+  <button id="pasteImg">Pegar imagen en la secuencia</button>
+  <img id="preview" hidden alt="">
+  <p id="clipStatus" class="muted">El fotograma sale al portapapeles del sistema:
+    pégalo en Photoshop, en Slack o donde haga falta. Al revés, la imagen que
+    tengas copiada se guarda junto al proyecto y entra en la pista libre bajo el
+    cursor.</p>
 </section>
 
 <section data-panel="cfg" hidden>

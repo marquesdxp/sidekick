@@ -1,5 +1,5 @@
 /*
- * TweakTools - envoltorio minimo sobre la API nativa de CEP.
+ * Sidekick - envoltorio minimo sobre la API nativa de CEP.
  *
  * Adobe distribuye CSInterface.js (~1000 lineas). De ahi solo se usan cuatro
  * cosas, asi que estan aqui en 40 lineas en vez de embarcar la libreria entera.

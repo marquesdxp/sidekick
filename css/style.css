@@ -1,4 +1,4 @@
-/* TweakTools - Premiere pinta el panel sobre su propio fondo oscuro. */
+/* Sidekick - Premiere pinta el panel sobre su propio fondo oscuro. */
 :root {
   --bg: #1e1e1e; --fg: #e8e8e8; --muted: #8f8f8f;
   --line: #3a3a3a; --field: #2a2a2a; --accent: #2d8cf0; --warn: #e0a33e;
@@ -18,11 +18,10 @@ h1 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; margin: 
 }
 .tab.is-on { color: var(--fg); border-bottom-color: var(--accent); }
 label { display: block; margin-bottom: 12px; color: var(--muted); }
-input, textarea {
+input {
   width: 100%; margin-top: 4px; padding: 6px 8px; background: var(--field);
   border: 1px solid var(--line); border-radius: 3px; color: var(--fg); font: inherit;
 }
-textarea { font-family: ui-monospace, Menlo, monospace; resize: vertical; }
 .row { display: flex; margin-top: 4px; }
 .row input { margin: 0; border-radius: 3px 0 0 3px; }
 .row button { width: 34px; border-radius: 0 3px 3px 0; border-left: 0; }
@@ -38,3 +37,7 @@ section > button { width: 100%; margin-bottom: 8px; }
 .err { color: #e06c6c; }
 .warn { color: var(--warn); }
 hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
+#preview {
+  display: block; width: 100%; margin: 4px 0 8px; border: 1px solid var(--line);
+  border-radius: 3px; background: #000;
+}

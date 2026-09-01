@@ -1,4 +1,4 @@
-# TweakTools
+# Sidekick
 
 Panel CEP para Adobe Premiere Pro. Herramientas personales de postproducción,
 código abierto bajo licencia MIT.
@@ -7,16 +7,16 @@ código abierto bajo licencia MIT.
 
 ## ⚠️ Proyecto independiente
 
-**TweakTools no tiene ninguna relación con Postline.**
+**Sidekick no tiene ninguna relación con Postline.**
 
 No comparte código, ni estilos, ni scripts, ni recursos, ni historial de git, ni
 identificadores con Postline ni con ningún otro plugin. Es un repositorio
 distinto, con su propio `.git`, su propia licencia y su propio bundle ID
-(`com.andersonmarques.tweaktools`).
+(`com.andersonmarques.sidekick`).
 
 Regla del proyecto: **no se importa código de Postline aquí bajo ningún
 concepto.** Si algo hace falta, se escribe de cero. Postline es un plugin UXP;
-TweakTools es CEP. No tienen nada en común y así se queda.
+Sidekick es CEP. No tienen nada en común y así se queda.
 
 ---
 
@@ -32,9 +32,19 @@ los segundos que hayas configurado (60 por defecto) y sale el `Exportado.`.
 El teléfono y la carpeta se guardan **por proyecto**, porque cada proyecto es un
 cliente distinto. Al cambiar de proyecto, el panel cambia de cliente solo.
 
-**Portapapeles de marcadores.** Copia los marcadores de la secuencia activa al
-portapapeles como texto tabulado (`inicio ⇥ fin ⇥ nombre ⇥ comentario`) y los
-vuelve a pegar en otra secuencia o en otro proyecto.
+**Fotograma ↔ portapapeles del sistema.** *Copiar el fotograma actual* exporta el
+fotograma bajo el cursor y lo deja en el portapapeles como imagen: se pega en
+Photoshop, en Slack, en un correo o donde haga falta. Al revés, cualquier imagen
+que tengas copiada se guarda en una carpeta `Sidekick` junto al `.prproj`, se
+importa al bin `Sidekick` y se coloca en el cursor, en la primera pista de vídeo
+que esté libre ahí (nunca machaca lo que ya haya montado).
+
+El fichero pegado va junto al proyecto y **nunca a una carpeta temporal**:
+Premiere queda enlazado a él para siempre, y en el temporal el material acabaría
+offline.
+
+Si el botón de pegar no puede leer el portapapeles —según la versión de Premiere,
+el permiso puede no estar—, basta con pulsar Cmd+V (Ctrl+V) sobre el panel.
 
 ## Tus credenciales son tuyas
 
@@ -57,9 +67,9 @@ Descarga el repositorio y haz doble clic en **`install.command`** (macOS) o
 **`install.bat`** (Windows). Copia el panel a la carpeta de extensiones y activa
 el modo depuración de CEP, que es lo que permite a Premiere cargar una extensión
 sin certificado. Reinicia Premiere y ábrelo en
-**Ventana → Extensiones → TweakTools**.
+**Ventana → Extensiones → Sidekick**.
 
-TweakTools no va firmado a propósito: firmar un `.zxp` exige un certificado y no
+Sidekick no va firmado a propósito: firmar un `.zxp` exige un certificado y no
 aporta nada cuando la instalación es local. Si algún día hace falta distribuirlo
 por Adobe Exchange, se firma con `ZXPSignCmd` y el modo depuración deja de ser
 necesario.
@@ -67,7 +77,7 @@ necesario.
 Para desarrollar, enlaza en vez de copiar y depura en `http://localhost:8099`:
 
 ```sh
-ln -s "$PWD" ~/Library/Application\ Support/Adobe/CEP/extensions/com.andersonmarques.tweaktools
+ln -s "$PWD" ~/Library/Application\ Support/Adobe/CEP/extensions/com.andersonmarques.sidekick
 ```
 
 ## Configura el Worker
@@ -77,13 +87,13 @@ npm test                       # comprobaciones del vigilante y del Worker
 
 cd worker
 cp wrangler.toml.example wrangler.toml
-npx wrangler secret put TWEAKTOOLS_TOKEN   # invéntate uno largo
+npx wrangler secret put SIDEKICK_TOKEN   # invéntate uno largo
 npx wrangler secret put META_TOKEN         # token permanente de tu app de Meta
 npx wrangler secret put WABA_PHONE_ID      # ID del número emisor de WhatsApp
 npx wrangler deploy
 ```
 
-Pega la URL resultante y el `TWEAKTOOLS_TOKEN` en la pestaña **Ajustes** del
+Pega la URL resultante y el `SIDEKICK_TOKEN` en la pestaña **Ajustes** del
 panel, junto al teléfono del cliente.
 
 Recomendado: descomenta `ALLOWED_NUMBERS` en `wrangler.toml`. Así, aunque
@@ -92,7 +102,7 @@ alguien te robase el token, solo podría escribir a los números de esa lista.
 ### Ventana de 24 horas: por diseño
 
 Meta solo permite mensajes de texto libre dentro de las **24 horas** siguientes
-al último mensaje que te haya escrito el cliente. TweakTools **solo envía texto
+al último mensaje que te haya escrito el cliente. Sidekick **solo envía texto
 libre, a propósito**: no manda plantillas y por tanto no puede escribir a nadie
 que no haya iniciado la conversación contigo. Si trabajas en contacto constante
 con el cliente, la ventana está siempre abierta y no hay nada que configurar.
@@ -110,6 +120,8 @@ a escribir en frío, que no es lo que hace esta herramienta.
   no avisa a un panel de un export que no ha lanzado él. Si exportas a una
   carpeta con otras cosas escribiéndose a la vez, puede confundirse de fichero.
 - Solo se vigila un export cada vez, y solo la carpeta indicada (sin subcarpetas).
+- Pegar necesita el proyecto guardado: sin `.prproj` en disco no hay carpeta
+  donde dejar la imagen.
 
 ## Licencia
 
