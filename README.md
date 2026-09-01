@@ -78,13 +78,18 @@ panel, junto al teléfono del cliente.
 Recomendado: descomenta `ALLOWED_NUMBERS` en `wrangler.toml`. Así, aunque
 alguien te robase el token, solo podría escribir a los números de esa lista.
 
-### Aviso sobre la WhatsApp Cloud API
+### Ventana de 24 horas: por diseño
 
-Meta solo permite mensajes de texto libre dentro de la **ventana de 24 horas**
-posterior al último mensaje que te haya escrito el cliente. Fuera de esa ventana
-la API devuelve el error `131047` y hay que usar una **plantilla aprobada**.
-Para avisos a clientes que no te han escrito hoy, necesitarás registrar una
-plantilla en Meta Business. TweakTools todavía no las envía.
+Meta solo permite mensajes de texto libre dentro de las **24 horas** siguientes
+al último mensaje que te haya escrito el cliente. TweakTools **solo envía texto
+libre, a propósito**: no manda plantillas y por tanto no puede escribir a nadie
+que no haya iniciado la conversación contigo. Si trabajas en contacto constante
+con el cliente, la ventana está siempre abierta y no hay nada que configurar.
+
+Si alguna vez se cierra, el panel te lo dice con todas las letras en vez de
+enseñarte el JSON de Meta: *«El cliente no te ha escrito en las últimas 24 h…»*.
+No se añaden plantillas: exigen aprobación de Meta Business y abrirían la puerta
+a escribir en frío, que no es lo que hace esta herramienta.
 
 ## Límites conocidos
 

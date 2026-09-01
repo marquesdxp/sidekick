@@ -44,9 +44,26 @@ async function sendWhatsApp(text) {
     headers: { 'content-type': 'application/json', 'x-tweaktools-token': token },
     body: JSON.stringify({ to, text }),
   });
-  const body = await res.text();
-  if (!res.ok) { throw new Error(`El Worker respondió ${res.status}: ${body.slice(0, 200)}`); }
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) { throw new Error(explainSendError(res.status, body)); }
   return body;
+}
+
+/* Codigos de la Cloud API que conviene traducir: el JSON crudo de Meta no dice
+ * nada util en mitad de un render. */
+const META_ERRORS = {
+  131047: 'El cliente no te ha escrito en las últimas 24 h, así que WhatsApp no deja enviarle este mensaje. Pídele que te escriba y reintenta.',
+  131026: 'WhatsApp no puede entregar el mensaje: comprueba que ese número tenga WhatsApp.',
+  190: 'El META_TOKEN de tu Worker ha caducado. Genera uno nuevo y vuelve a hacer wrangler secret put.',
+};
+
+function explainSendError(status, body) {
+  const meta = body?.meta?.error;
+  const known = meta && META_ERRORS[meta.code];
+  if (known) { return known; }
+  if (status === 401) { return 'El Worker rechazó el token. Revísalo en Ajustes.'; }
+  if (meta?.message) { return `Meta rechazó el mensaje: ${meta.message}`; }
+  return `El Worker respondió ${status}: ${JSON.stringify(body).slice(0, 200)}`;
 }
 
 /* --- Exportar y avisar --------------------------------------------------- */
