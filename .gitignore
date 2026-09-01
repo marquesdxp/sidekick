@@ -1,0 +1,7 @@
+# Nunca en git: secretos y config local
+worker/wrangler.toml
+worker/.dev.vars
+worker/node_modules/
+worker/.wrangler/
+*.zxp
+.DS_Store

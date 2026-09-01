@@ -1,0 +1,53 @@
+<meta charset="utf-8">
+<title>TweakTools</title>
+<link rel="stylesheet" href="css/style.css">
+
+<header>
+  <h1>TweakTools</h1>
+  <span id="ctx" class="muted">—</span>
+</header>
+
+<nav class="tabs">
+  <button class="tab is-on" data-tab="export">Exportar</button>
+  <button class="tab" data-tab="clip">Portapapeles</button>
+  <button class="tab" data-tab="cfg">Ajustes</button>
+</nav>
+
+<section data-panel="export">
+  <label>Preset de exportación (.epr)
+    <div class="row"><input id="preset" type="text" placeholder="Sin elegir"><button id="pickPreset">…</button></div>
+  </label>
+  <label>Carpeta de salida
+    <div class="row"><input id="outdir" type="text" placeholder="Sin elegir"><button id="pickOut">…</button></div>
+  </label>
+  <button id="go" class="primary">Exportar y avisar por WhatsApp</button>
+  <p id="status" class="muted">Listo.</p>
+</section>
+
+<section data-panel="clip" hidden>
+  <p class="muted">Marcadores de la secuencia activa, como texto tabulado
+    (<code>inicio ⇥ fin ⇥ nombre ⇥ comentario</code>).</p>
+  <button id="copyMk">Copiar marcadores al portapapeles</button>
+  <button id="pasteMk">Pegar marcadores desde el portapapeles</button>
+  <textarea id="clipbox" rows="8" spellcheck="false" placeholder="Lo copiado/pegado aparece aquí."></textarea>
+  <p id="clipStatus" class="muted">—</p>
+</section>
+
+<section data-panel="cfg" hidden>
+  <label>URL de tu Cloudflare Worker
+    <input id="workerUrl" type="text" placeholder="https://tu-worker.tu-cuenta.workers.dev">
+  </label>
+  <label>Token compartido del Worker
+    <input id="workerToken" type="password" placeholder="El mismo que pusiste con wrangler secret">
+  </label>
+  <label>WhatsApp del cliente (con prefijo de país, solo dígitos)
+    <input id="phone" type="text" inputmode="numeric" placeholder="34600111222">
+  </label>
+  <label>Retardo del aviso «Exportado» (segundos)
+    <input id="delay" type="text" inputmode="numeric" placeholder="60">
+  </label>
+  <button id="test">Enviar mensaje de prueba</button>
+  <p id="cfgStatus" class="muted">Se guarda solo en este equipo. Nunca sale al repositorio.</p>
+</section>
+
+<script type="module" src="js/main.js"></script>

@@ -1,0 +1,39 @@
+/* TweakTools - Premiere pinta el panel sobre su propio fondo oscuro. */
+:root {
+  --bg: #1e1e1e; --fg: #e8e8e8; --muted: #8f8f8f;
+  --line: #3a3a3a; --field: #2a2a2a; --accent: #2d8cf0; --warn: #e0a33e;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 12px; background: var(--bg); color: var(--fg);
+  font: 12px/1.45 -apple-system, "Segoe UI", sans-serif;
+}
+header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+h1 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; margin: 0; }
+.muted { color: var(--muted); font-size: 11px; margin: 6px 0 0; }
+.tabs { display: flex; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+.tab {
+  flex: 1; padding: 7px 0; background: none; border: 0; border-bottom: 2px solid transparent;
+  color: var(--muted); font: inherit; cursor: pointer;
+}
+.tab.is-on { color: var(--fg); border-bottom-color: var(--accent); }
+label { display: block; margin-bottom: 12px; color: var(--muted); }
+input, textarea {
+  width: 100%; margin-top: 4px; padding: 6px 8px; background: var(--field);
+  border: 1px solid var(--line); border-radius: 3px; color: var(--fg); font: inherit;
+}
+textarea { font-family: ui-monospace, Menlo, monospace; resize: vertical; }
+.row { display: flex; margin-top: 4px; }
+.row input { margin: 0; border-radius: 3px 0 0 3px; }
+.row button { width: 34px; border-radius: 0 3px 3px 0; border-left: 0; }
+button {
+  padding: 7px 10px; background: var(--field); border: 1px solid var(--line);
+  border-radius: 3px; color: var(--fg); font: inherit; cursor: pointer;
+}
+button:hover { background: #333; }
+button:disabled { opacity: .5; cursor: default; }
+button.primary { width: 100%; background: var(--accent); border-color: var(--accent); color: #fff; }
+button.primary:hover { background: #3d9bff; }
+section > button { width: 100%; margin-bottom: 8px; }
+.err { color: #e06c6c; }
+.warn { color: var(--warn); }

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ExtensionManifest Version="12.0" ExtensionBundleId="com.andersonmarques.tweaktools"
+                   ExtensionBundleVersion="0.1.0" ExtensionBundleName="TweakTools"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <ExtensionList>
+    <Extension Id="com.andersonmarques.tweaktools.panel" Version="0.1.0"/>
+  </ExtensionList>
+  <ExecutionEnvironment>
+    <HostList>
+      <Host Name="PPRO" Version="[15.0,99.9]"/>
+    </HostList>
+    <LocaleList><Locale Code="All"/></LocaleList>
+    <RequiredRuntimeList>
+      <RequiredRuntime Name="CSXS" Version="9.0"/>
+    </RequiredRuntimeList>
+  </ExecutionEnvironment>
+  <DispatchInfoList>
+    <Extension Id="com.andersonmarques.tweaktools.panel">
+      <DispatchInfo>
+        <Resources>
+          <MainPath>./index.html</MainPath>
+          <ScriptPath>./host.jsx</ScriptPath>
+          <CEFCommandLine>
+            <Parameter>--allow-file-access-from-files</Parameter>
+            <Parameter>--allow-file-access</Parameter>
+          </CEFCommandLine>
+        </Resources>
+        <Lifecycle><AutoVisible>true</AutoVisible></Lifecycle>
+        <UI>
+          <Type>Panel</Type>
+          <Menu>TweakTools</Menu>
+          <Geometry>
+            <Size><Height>560</Height><Width>340</Width></Size>
+            <MinSize><Height>320</Height><Width>280</Width></MinSize>
+          </Geometry>
+        </UI>
+      </DispatchInfo>
+    </Extension>
+  </DispatchInfoList>
+</ExtensionManifest>
