@@ -277,6 +277,13 @@ $('test').addEventListener('click', async () => {
   }
 });
 
+/* Un <a> normal navegaria dentro del propio panel y lo dejaria inservible:
+ * en CEP los enlaces externos salen por el navegador del sistema. */
+$('ig').addEventListener('click', (e) => {
+  e.preventDefault();
+  window.cep.util.openURLInDefaultBrowser(e.currentTarget.href);
+});
+
 bindFields();
 refreshContext();
 window.addEventListener('focus', refreshContext);
