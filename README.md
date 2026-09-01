@@ -22,10 +22,15 @@ TweakTools es CEP. No tienen nada en común y así se queda.
 
 ## Qué hace
 
-**Exportar y avisar por WhatsApp.** Pulsas un botón: el cliente recibe
-`Exportando el [proyecto] — [secuencia]...`, el panel encola la secuencia en
-Adobe Media Encoder y, cuando el render termina, espera los segundos que hayas
-configurado (60 por defecto) y manda `Exportado.`.
+**Avisar al cliente por WhatsApp, sin tocar tu forma de exportar.** Pulsas un
+botón y el cliente del proyecto abierto recibe `Exportando el [proyecto]...`.
+A partir de ahí el panel vigila la carpeta de salida que le hayas indicado.
+Exporta como quieras —Premiere directo, Media Encoder, cola, da igual—: cuando
+un fichero deja de crecer durante 15 segundos, se da por terminado, se esperan
+los segundos que hayas configurado (60 por defecto) y sale el `Exportado.`.
+
+El teléfono y la carpeta se guardan **por proyecto**, porque cada proyecto es un
+cliente distinto. Al cambiar de proyecto, el panel cambia de cliente solo.
 
 **Portapapeles de marcadores.** Copia los marcadores de la secuencia activa al
 portapapeles como texto tabulado (`inicio ⇥ fin ⇥ nombre ⇥ comentario`) y los
@@ -44,27 +49,33 @@ Worker y un token compartido. Nada de eso se versiona ni se distribuye.
 `worker/wrangler.toml` y `worker/.dev.vars` están en `.gitignore` precisamente
 para eso. Lo que se publica es `worker/wrangler.toml.example`.
 
-## Instalación (desarrollo)
+## Instalación
 
 Requiere Premiere Pro 15 o superior.
 
-1. Activa el modo depuración de CEP (una vez):
-   ```sh
-   for v in 11 12 13; do defaults write com.adobe.CSXS.$v PlayerDebugMode 1; done
-   ```
-2. Enlaza el panel:
-   ```sh
-   ln -s "$PWD" ~/Library/Application\ Support/Adobe/CEP/extensions/com.andersonmarques.tweaktools
-   ```
-3. Reinicia Premiere. El panel aparece en **Ventana → Extensiones → TweakTools**.
+Descarga el repositorio y haz doble clic en **`install.command`** (macOS) o
+**`install.bat`** (Windows). Copia el panel a la carpeta de extensiones y activa
+el modo depuración de CEP, que es lo que permite a Premiere cargar una extensión
+sin certificado. Reinicia Premiere y ábrelo en
+**Ventana → Extensiones → TweakTools**.
 
-Para depurar, abre `http://localhost:8099` en Chrome con el panel abierto.
+TweakTools no va firmado a propósito: firmar un `.zxp` exige un certificado y no
+aporta nada cuando la instalación es local. Si algún día hace falta distribuirlo
+por Adobe Exchange, se firma con `ZXPSignCmd` y el modo depuración deja de ser
+necesario.
+
+Para desarrollar, enlaza en vez de copiar y depura en `http://localhost:8099`:
+
+```sh
+ln -s "$PWD" ~/Library/Application\ Support/Adobe/CEP/extensions/com.andersonmarques.tweaktools
+```
 
 ## Configura el Worker
 
 ```sh
+npm test                       # comprobaciones del vigilante y del Worker
+
 cd worker
-npm test                       # comprobaciones de auth y validacion
 cp wrangler.toml.example wrangler.toml
 npx wrangler secret put TWEAKTOOLS_TOKEN   # invéntate uno largo
 npx wrangler secret put META_TOKEN         # token permanente de tu app de Meta
@@ -94,11 +105,11 @@ a escribir en frío, que no es lo que hace esta herramienta.
 ## Límites conocidos
 
 - CEP está deprecado por Adobe. Sigue funcionando y es la única vía para hacer
-  llamadas de red y acceso a disco sin las restricciones de UXP, pero para
-  distribuirlo fuera del modo depuración hay que firmar un `.zxp` con
-  `ZXPSignCmd`.
-- El aviso de fin de render solo funciona con exportaciones lanzadas desde el
-  propio panel. Un export lanzado a mano desde Premiere no emite el evento.
+  llamadas de red y acceso a disco sin las restricciones de UXP.
+- El fin del render se deduce de que el fichero deje de crecer, porque Premiere
+  no avisa a un panel de un export que no ha lanzado él. Si exportas a una
+  carpeta con otras cosas escribiéndose a la vez, puede confundirse de fichero.
+- Solo se vigila un export cada vez, y solo la carpeta indicada (sin subcarpetas).
 
 ## Licencia
 

@@ -8,20 +8,20 @@
 </header>
 
 <nav class="tabs">
-  <button class="tab is-on" data-tab="export">Exportar</button>
+  <button class="tab is-on" data-tab="notify">Aviso</button>
   <button class="tab" data-tab="clip">Portapapeles</button>
   <button class="tab" data-tab="cfg">Ajustes</button>
 </nav>
 
-<section data-panel="export">
-  <label>Preset de exportación (.epr)
-    <div class="row"><input id="preset" type="text" placeholder="Sin elegir"><button id="pickPreset">…</button></div>
+<section data-panel="notify">
+  <label>Carpeta de salida a vigilar
+    <div class="row"><input id="watchdir" type="text" placeholder="Sin elegir"><button id="pickWatch">…</button></div>
   </label>
-  <label>Carpeta de salida
-    <div class="row"><input id="outdir" type="text" placeholder="Sin elegir"><button id="pickOut">…</button></div>
-  </label>
-  <button id="go" class="primary">Exportar y avisar por WhatsApp</button>
+  <button id="go" class="primary">Avisar al cliente y vigilar</button>
+  <button id="stop" hidden>Dejar de vigilar</button>
   <p id="status" class="muted">Listo.</p>
+  <p class="muted">Exporta desde donde quieras. Cuando el fichero deje de crecer
+    durante 15 s, se considera terminado y sale el segundo aviso.</p>
 </section>
 
 <section data-panel="clip" hidden>
@@ -34,14 +34,15 @@
 </section>
 
 <section data-panel="cfg" hidden>
+  <label>WhatsApp del cliente de <b id="cfgProject">este proyecto</b> (con prefijo de país)
+    <input id="phone" type="text" inputmode="numeric" placeholder="34600111222">
+  </label>
+  <hr>
   <label>URL de tu Cloudflare Worker
     <input id="workerUrl" type="text" placeholder="https://tu-worker.tu-cuenta.workers.dev">
   </label>
   <label>Token compartido del Worker
     <input id="workerToken" type="password" placeholder="El mismo que pusiste con wrangler secret">
-  </label>
-  <label>WhatsApp del cliente (con prefijo de país, solo dígitos)
-    <input id="phone" type="text" inputmode="numeric" placeholder="34600111222">
   </label>
   <label>Retardo del aviso «Exportado» (segundos)
     <input id="delay" type="text" inputmode="numeric" placeholder="60">

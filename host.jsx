@@ -10,26 +10,6 @@
  * polyfill para tres campos.
  */
 
-var TWEAKTOOLS_EVENT = "com.andersonmarques.tweaktools.encode";
-var tt_xLib = null;
-var tt_bound = false;
-
-/* Envia un evento CSXS al panel HTML. Es la unica via para avisar de algo
- * asincrono (el render termina mucho despues de que evalScript haya vuelto). */
-function tt_dispatch(payload) {
-    try {
-        if (tt_xLib === null) {
-            tt_xLib = new ExternalObject("lib:PlugPlugExternalObject");
-        }
-        var e = new CSXSEvent();
-        e.type = TWEAKTOOLS_EVENT;
-        e.data = payload;
-        e.dispatch();
-    } catch (err) {
-        $.writeln("TweakTools dispatch fallo: " + err);
-    }
-}
-
 function tt_clean(name) {
     return String(name).replace(/[\/\\:*?"<>|\t]/g, "_");
 }
@@ -41,61 +21,14 @@ function tt_activeSequence() {
 
 /* --- API que llama el panel --------------------------------------------- */
 
+/* El nombre del proyecto es la clave con la que el panel busca a que cliente
+ * hay que avisar, asi que se devuelve siempre, haya secuencia activa o no. */
 function ttGetContext() {
     try {
-        var seq = tt_activeSequence();
-        if (!seq) { return "err\tNo hay ninguna secuencia activa."; }
+        if (!app.project) { return "err\tNo hay ningun proyecto abierto."; }
         var projName = app.project.name.replace(/\.prproj$/i, "");
-        return "ok\t" + tt_clean(projName) + "\t" + tt_clean(seq.name);
-    } catch (e) {
-        return "err\t" + e.toString();
-    }
-}
-
-function tt_bindEncoder() {
-    if (tt_bound) { return; }
-    app.encoder.bind("onEncoderJobComplete", function (jobID, outputFilePath) {
-        tt_dispatch("complete\t" + jobID + "\t" + outputFilePath);
-    });
-    app.encoder.bind("onEncoderJobError", function (jobID, message) {
-        tt_dispatch("error\t" + jobID + "\t" + message);
-    });
-    app.encoder.bind("onEncoderJobCanceled", function (jobID) {
-        tt_dispatch("canceled\t" + jobID + "\t");
-    });
-    tt_bound = true;
-}
-
-/* Encola la secuencia activa en Adobe Media Encoder y arranca la cola.
- * Devuelve el jobID para que el panel sepa que evento le pertenece. */
-function ttStartExport(outFolder, presetPath) {
-    try {
         var seq = tt_activeSequence();
-        if (!seq) { return "err\tNo hay ninguna secuencia activa."; }
-
-        var preset = new File(presetPath);
-        if (!preset.exists) { return "err\tNo encuentro el preset: " + presetPath; }
-        var folder = new Folder(outFolder);
-        if (!folder.exists && !folder.create()) {
-            return "err\tNo puedo crear la carpeta de salida: " + outFolder;
-        }
-
-        tt_bindEncoder();
-        app.encoder.launchEncoder();
-        app.encoder.setEmbeddedXMPEnabled(0);
-        app.encoder.setSidecarXMPEnabled(0);
-
-        var outPath = folder.fsName + "/" + tt_clean(seq.name);
-        var jobID = app.encoder.encodeSequence(
-            seq,
-            outPath,
-            preset.fsName,
-            app.encoder.ENCODE_ENTIRE,
-            0, /* no borrar de la cola al terminar: queremos ver el resultado */
-            1  /* arrancar la cola ya */
-        );
-        if (!jobID) { return "err\tMedia Encoder rechazo el trabajo."; }
-        return "ok\t" + jobID + "\t" + outPath;
+        return "ok\t" + tt_clean(projName) + "\t" + (seq ? tt_clean(seq.name) : "");
     } catch (e) {
         return "err\t" + e.toString();
     }

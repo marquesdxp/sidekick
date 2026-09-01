@@ -37,3 +37,4 @@ button.primary:hover { background: #3d9bff; }
 section > button { width: 100%; margin-bottom: 8px; }
 .err { color: #e06c6c; }
 .warn { color: var(--warn); }
+hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }

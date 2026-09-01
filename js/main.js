@@ -3,28 +3,38 @@
  *
  * Proyecto independiente. Sin relacion con Postline ni codigo compartido con el.
  */
-import { host, onHostEvent } from './cep.js';
+import { host } from './cep.js';
+import { DEFAULTS, initWatch, stepWatch } from './watcher.js';
 
-const HOST_EVENT = 'com.andersonmarques.tweaktools.encode';
 const CFG_KEY = 'tweaktools.config';
 const $ = (id) => document.getElementById(id);
 
 /* --- Configuracion local ------------------------------------------------ *
  * localStorage y punto: la URL del Worker, el token y el telefono del cliente
- * son de cada usuario y no deben acabar nunca en un fichero del repositorio. */
-const CFG_FIELDS = ['workerUrl', 'workerToken', 'phone', 'delay', 'preset', 'outdir'];
-const cfg = { delay: '60', ...JSON.parse(localStorage.getItem(CFG_KEY) || '{}') };
+ * son de cada usuario y no deben acabar nunca en un fichero del repositorio.
+ * El telefono y la carpeta van por proyecto, porque cada proyecto es un cliente
+ * distinto; la URL, el token y el retardo son los mismos siempre. */
+const GLOBAL_FIELDS = ['workerUrl', 'workerToken', 'delay'];
+const PROJECT_FIELDS = ['phone', 'watchdir'];
 
-function saveCfg() {
-  localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+const cfg = { delay: '60', projects: {}, ...JSON.parse(localStorage.getItem(CFG_KEY) || '{}') };
+let project = '';
+
+const saveCfg = () => localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+const projectCfg = () => (cfg.projects[project] ??= {});
+
+function bindFields() {
+  for (const id of GLOBAL_FIELDS) {
+    $(id).addEventListener('change', (e) => { cfg[id] = e.target.value.trim(); saveCfg(); });
+  }
+  for (const id of PROJECT_FIELDS) {
+    $(id).addEventListener('change', (e) => { projectCfg()[id] = e.target.value.trim(); saveCfg(); });
+  }
 }
 
-function bindCfg() {
-  for (const id of CFG_FIELDS) {
-    const el = $(id);
-    el.value = cfg[id] || '';
-    el.addEventListener('change', () => { cfg[id] = el.value.trim(); saveCfg(); });
-  }
+function renderFields() {
+  for (const id of GLOBAL_FIELDS) { $(id).value = cfg[id] || ''; }
+  for (const id of PROJECT_FIELDS) { $(id).value = projectCfg()[id] || ''; }
 }
 
 /* --- Envio a traves del Worker ------------------------------------------ */
@@ -34,10 +44,12 @@ function bindCfg() {
 async function sendWhatsApp(text) {
   const url = (cfg.workerUrl || '').trim();
   const token = (cfg.workerToken || '').trim();
-  const to = (cfg.phone || '').replace(/\D/g, '');
+  const to = (projectCfg().phone || '').replace(/\D/g, '');
   if (!url) { throw new Error('Falta la URL del Worker en Ajustes.'); }
   if (!token) { throw new Error('Falta el token del Worker en Ajustes.'); }
-  if (to.length < 8 || to.length > 15) { throw new Error('El teléfono debe tener el prefijo de país y entre 8 y 15 dígitos.'); }
+  if (to.length < 8 || to.length > 15) {
+    throw new Error(`Falta el WhatsApp del cliente de «${project}» en Ajustes (con prefijo de país).`);
+  }
 
   const res = await fetch(url, {
     method: 'POST',
@@ -66,9 +78,24 @@ function explainSendError(status, body) {
   return `El Worker respondió ${status}: ${JSON.stringify(body).slice(0, 200)}`;
 }
 
-/* --- Exportar y avisar --------------------------------------------------- */
+/* --- Vigilancia de la carpeta -------------------------------------------- */
 
-let pendingJob = null; // jobID que estamos esperando; ignora renders ajenos.
+/* cep.fs es sincrona y devuelve { err, data }; err === 0 es exito. Basta para
+ * esto, asi que el panel no necesita habilitar Node.js. */
+function listFiles(dir) {
+  const r = window.cep.fs.readdir(dir);
+  if (r.err) { throw new Error(`No puedo leer la carpeta: ${dir}`); }
+  const out = new Map();
+  for (const name of r.data) {
+    if (name.startsWith('.')) { continue; }
+    const st = window.cep.fs.stat(`${dir}/${name}`);
+    if (st.err || !st.data.isFile()) { continue; }
+    out.set(name, st.data.size);
+  }
+  return out;
+}
+
+let timer = null;
 
 function setStatus(msg, cls = 'muted') {
   const el = $('status');
@@ -76,54 +103,59 @@ function setStatus(msg, cls = 'muted') {
   el.className = cls;
 }
 
-async function startExport() {
-  const btn = $('go');
-  try {
-    btn.disabled = true;
-    if (!cfg.preset) { throw new Error('Elige un preset .epr.'); }
-    if (!cfg.outdir) { throw new Error('Elige una carpeta de salida.'); }
-
-    const [project, sequence] = await host('ttGetContext');
-    setStatus(`Avisando de que empieza «${sequence}»…`);
-    await sendWhatsApp(`Exportando el ${project} — ${sequence}...`);
-
-    const [jobID] = await host('ttStartExport', cfg.outdir, cfg.preset);
-    pendingJob = jobID;
-    setStatus(`Renderizando en Media Encoder (trabajo ${jobID}). Te aviso al terminar.`);
-  } catch (err) {
-    setStatus(err.message, 'err');
-  } finally {
-    btn.disabled = false;
-  }
+function stopWatching(msg, cls) {
+  clearInterval(timer);
+  timer = null;
+  $('go').disabled = false;
+  $('stop').hidden = true;
+  if (msg) { setStatus(msg, cls); }
 }
 
-onHostEvent(HOST_EVENT, async ([kind, jobID, info]) => {
-  if (jobID !== pendingJob) { return; } // otro render, no es nuestro
-  pendingJob = null;
-
-  if (kind === 'canceled') { setStatus('Exportación cancelada. No se envía aviso.', 'warn'); return; }
-  if (kind === 'error') { setStatus(`Media Encoder falló: ${info}`, 'err'); return; }
-
+async function announceDone(filename) {
   const delay = Math.max(0, parseInt(cfg.delay, 10) || 0);
-  setStatus(`Exportado. Aviso al cliente en ${delay} s…`);
+  setStatus(`«${filename}» terminado. Aviso al cliente en ${delay} s…`);
   await new Promise((r) => setTimeout(r, delay * 1000));
   try {
     await sendWhatsApp('Exportado.');
-    setStatus('Exportado y cliente avisado.');
+    setStatus(`Cliente avisado de «${filename}».`);
   } catch (err) {
-    setStatus(`Se exportó, pero el aviso falló: ${err.message}`, 'err');
+    setStatus(`El fichero está listo, pero el aviso falló: ${err.message}`, 'err');
   }
-});
+}
 
-/* --- Selectores de fichero ---------------------------------------------- */
+async function startNotify() {
+  const dir = projectCfg().watchdir;
+  try {
+    $('go').disabled = true;
+    if (!dir) { throw new Error('Elige la carpeta de salida a vigilar.'); }
 
-function pick(id, { directory, title, types }) {
-  const r = window.cep.fs.showOpenDialog(false, directory, title, cfg[id] || '', types);
-  const path = r && r.data && r.data[0];
-  if (!path) { return; }
-  cfg[id] = path;
-  $(id).value = path;
-  saveCfg();
+    const baseline = listFiles(dir); // antes de avisar: si la carpeta falla, no se manda nada
+    setStatus(`Avisando al cliente de «${project}»…`);
+    await sendWhatsApp(`Exportando el ${project}...`);
+
+    let state = initWatch(baseline, Date.now());
+    $('stop').hidden = false;
+    setStatus('Aviso enviado. Vigilando la carpeta; exporta cuando quieras.');
+
+    timer = setInterval(() => {
+      try {
+        state = stepWatch(state, listFiles(dir), Date.now());
+      } catch (err) {
+        stopWatching(err.message, 'err');
+        return;
+      }
+      if (state.status === 'timeout') {
+        stopWatching('Se acabó el tiempo de vigilancia sin ver ningún fichero nuevo.', 'warn');
+      } else if (state.status === 'done') {
+        stopWatching();
+        announceDone(state.target);
+      } else if (state.target) {
+        setStatus(`Generando «${state.target}»…`);
+      }
+    }, DEFAULTS.pollMs);
+  } catch (err) {
+    stopWatching(err.message, 'err');
+  }
 }
 
 /* --- Portapapeles -------------------------------------------------------- */
@@ -182,6 +214,24 @@ async function pasteMarkers() {
   }
 }
 
+/* --- Contexto ------------------------------------------------------------ */
+
+/* El proyecto abierto puede cambiar mientras el panel sigue vivo, y con el
+ * cambia el cliente al que hay que avisar. Se relee al recuperar el foco. */
+async function refreshContext() {
+  try {
+    const [proj, seq] = await host('ttGetContext');
+    if (proj === project) { return; }
+    if (timer) { stopWatching('Vigilancia detenida: has cambiado de proyecto.', 'warn'); }
+    project = proj;
+    $('ctx').textContent = seq ? `${proj} · ${seq}` : proj;
+    $('cfgProject').textContent = proj;
+    renderFields();
+  } catch {
+    $('ctx').textContent = 'sin proyecto abierto';
+  }
+}
+
 /* --- Arranque ------------------------------------------------------------ */
 
 document.querySelectorAll('.tab').forEach((tab) => {
@@ -193,9 +243,16 @@ document.querySelectorAll('.tab').forEach((tab) => {
   });
 });
 
-$('pickPreset').addEventListener('click', () => pick('preset', { directory: false, title: 'Elige un preset de exportación', types: ['epr'] }));
-$('pickOut').addEventListener('click', () => pick('outdir', { directory: true, title: 'Elige la carpeta de salida', types: [] }));
-$('go').addEventListener('click', startExport);
+$('pickWatch').addEventListener('click', () => {
+  const r = window.cep.fs.showOpenDialog(false, true, 'Elige la carpeta de salida', projectCfg().watchdir || '', []);
+  const path = r?.data?.[0];
+  if (!path) { return; }
+  projectCfg().watchdir = path;
+  $('watchdir').value = path;
+  saveCfg();
+});
+$('go').addEventListener('click', startNotify);
+$('stop').addEventListener('click', () => stopWatching('Vigilancia detenida.', 'warn'));
 $('copyMk').addEventListener('click', copyMarkers);
 $('pasteMk').addEventListener('click', pasteMarkers);
 $('test').addEventListener('click', async () => {
@@ -210,7 +267,6 @@ $('test').addEventListener('click', async () => {
   }
 });
 
-bindCfg();
-host('ttGetContext')
-  .then(([project, sequence]) => { $('ctx').textContent = `${project} · ${sequence}`; })
-  .catch(() => { $('ctx').textContent = 'sin secuencia activa'; });
+bindFields();
+refreshContext();
+window.addEventListener('focus', refreshContext);
