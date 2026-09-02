@@ -22,16 +22,6 @@ Sidekick es CEP. No tienen nada en común y así se queda.
 
 ## Qué hace
 
-**Avisar al cliente por WhatsApp, sin tocar tu forma de exportar.** Pulsas un
-botón y el cliente del proyecto abierto recibe `Exportando el [proyecto]...`.
-A partir de ahí el panel vigila la carpeta de salida que le hayas indicado.
-Exporta como quieras —Premiere directo, Media Encoder, cola, da igual—: cuando
-un fichero deja de crecer durante 15 segundos, se da por terminado, se esperan
-los segundos que hayas configurado (60 por defecto) y sale el `Exportado.`.
-
-El teléfono y la carpeta se guardan **por proyecto**, porque cada proyecto es un
-cliente distinto. Al cambiar de proyecto, el panel cambia de cliente solo.
-
 **Fotograma ↔ portapapeles del sistema.** *Copiar el fotograma actual* exporta el
 fotograma bajo el cursor y lo deja en el portapapeles como imagen: se pega en
 Photoshop, en Slack, en un correo o donde haga falta. Al revés, cualquier imagen
@@ -43,21 +33,18 @@ El fichero pegado va junto al proyecto y **nunca a una carpeta temporal**:
 Premiere queda enlazado a él para siempre, y en el temporal el material acabaría
 offline.
 
-Si el botón de pegar no puede leer el portapapeles —según la versión de Premiere,
-el permiso puede no estar—, basta con pulsar Cmd+V (Ctrl+V) sobre el panel.
+El portapapeles se toca a través del sistema operativo (JXA sobre `NSPasteboard`
+en macOS, `powershell` en Windows, lanzados con `cep.process`), no con
+`navigator.clipboard`: el CEF que embarca Premiere no da permiso de lectura y
+`ClipboardItem` no siempre existe, que es por lo que Copiar y Pegar fallaban.
 
-## Tus credenciales son tuyas
+**Tres idiomas.** El panel toma el idioma del sistema y usa
+`i18n/strings.js`: inglés, español y português-brasil, elegible en **≡ →
+Language** y guardado en `~/.sidekick.json`. Lo que no esté traducido sale en
+inglés. Para añadir un idioma, copia un bloque y traduce los valores.
 
-Este repositorio **no contiene ninguna credencial ni ninguna URL de despliegue**.
-El plugin no lleva ningún token de Meta incrustado, ni puede llevarlo: cualquiera
-podría extraerlo de un `.zxp`.
-
-Cada usuario despliega **su propio** Cloudflare Worker con **sus propios**
-secretos. El panel solo guarda, en el `localStorage` de tu equipo, la URL de tu
-Worker y un token compartido. Nada de eso se versiona ni se distribuye.
-
-`worker/wrangler.toml` y `worker/.dev.vars` están en `.gitignore` precisamente
-para eso. Lo que se publica es `worker/wrangler.toml.example`.
+El idioma por defecto sale de `navigator.language`, que en el CEF de Premiere es
+el idioma **de Premiere**, no el del sistema: por eso el menú manda sobre él.
 
 ## Instalación
 
@@ -74,54 +61,24 @@ aporta nada cuando la instalación es local. Si algún día hace falta distribui
 por Adobe Exchange, se firma con `ZXPSignCmd` y el modo depuración deja de ser
 necesario.
 
-Para desarrollar, enlaza en vez de copiar y depura en `http://localhost:8099`:
+Para desarrollar, `./install.command --link` enlaza en vez de copiar: editas el
+repositorio y basta con el botón ↻ del panel, sin reinstalar ni reiniciar
+Premiere. La consola queda en `http://localhost:8099` (`.debug`).
 
 ```sh
-ln -s "$PWD" ~/Library/Application\ Support/Adobe/CEP/extensions/com.andersonmarques.sidekick
+npm test    # comprobaciones del portapapeles y del i18n
 ```
-
-## Configura el Worker
-
-```sh
-npm test                       # comprobaciones del vigilante y del Worker
-
-cd worker
-cp wrangler.toml.example wrangler.toml
-npx wrangler secret put SIDEKICK_TOKEN   # invéntate uno largo
-npx wrangler secret put META_TOKEN         # token permanente de tu app de Meta
-npx wrangler secret put WABA_PHONE_ID      # ID del número emisor de WhatsApp
-npx wrangler deploy
-```
-
-Pega la URL resultante y el `SIDEKICK_TOKEN` en la pestaña **Ajustes** del
-panel, junto al teléfono del cliente.
-
-Recomendado: descomenta `ALLOWED_NUMBERS` en `wrangler.toml`. Así, aunque
-alguien te robase el token, solo podría escribir a los números de esa lista.
-
-### Ventana de 24 horas: por diseño
-
-Meta solo permite mensajes de texto libre dentro de las **24 horas** siguientes
-al último mensaje que te haya escrito el cliente. Sidekick **solo envía texto
-libre, a propósito**: no manda plantillas y por tanto no puede escribir a nadie
-que no haya iniciado la conversación contigo. Si trabajas en contacto constante
-con el cliente, la ventana está siempre abierta y no hay nada que configurar.
-
-Si alguna vez se cierra, el panel te lo dice con todas las letras en vez de
-enseñarte el JSON de Meta: *«El cliente no te ha escrito en las últimas 24 h…»*.
-No se añaden plantillas: exigen aprobación de Meta Business y abrirían la puerta
-a escribir en frío, que no es lo que hace esta herramienta.
 
 ## Límites conocidos
 
 - CEP está deprecado por Adobe. Sigue funcionando y es la única vía para hacer
   llamadas de red y acceso a disco sin las restricciones de UXP.
-- El fin del render se deduce de que el fichero deje de crecer, porque Premiere
-  no avisa a un panel de un export que no ha lanzado él. Si exportas a una
-  carpeta con otras cosas escribiéndose a la vez, puede confundirse de fichero.
-- Solo se vigila un export cada vez, y solo la carpeta indicada (sin subcarpetas).
 - Pegar necesita el proyecto guardado: sin `.prproj` en disco no hay carpeta
   donde dejar la imagen.
+- Copiar el fotograma va por QE (`qe.project…exportFramePNG`), el DOM interno de
+  Premiere, porque las versiones nuevas ya no exponen `exportFrame*` al script.
+  Si algún día QE tampoco está, quedan `renderVideoFrameAtTime` y las cuatro
+  `exportFrame*` como respaldo, y el panel dice qué ofrece esa versión.
 
 ## Licencia
 

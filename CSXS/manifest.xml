@@ -31,7 +31,7 @@
           <Menu>Sidekick</Menu>
           <Geometry>
             <Size><Height>560</Height><Width>340</Width></Size>
-            <MinSize><Height>320</Height><Width>280</Width></MinSize>
+            <MinSize><Height>100</Height><Width>140</Width></MinSize>
           </Geometry>
         </UI>
       </DispatchInfo>

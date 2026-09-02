@@ -9,7 +9,13 @@ DEST="$HOME/Library/Application Support/Adobe/CEP/extensions/com.andersonmarques
 for v in 10 11 12 13; do defaults write "com.adobe.CSXS.$v" PlayerDebugMode 1; done
 rm -rf "$DEST"
 mkdir -p "$DEST"
-cp -R CSXS css js host.jsx index.html "$DEST/"
+# --link: enlaces simbolicos en vez de copias, para desarrollar sin reinstalar
+# a cada cambio. Sin la opcion se copia, que es lo que quiere quien solo instala.
+if [ "$1" = "--link" ]; then
+  ln -s "$PWD"/CSXS "$PWD"/css "$PWD"/js "$PWD"/i18n "$PWD"/fonts "$PWD"/host.jsx "$PWD"/index.html "$PWD"/.debug "$DEST/"
+else
+  cp -R CSXS css js i18n fonts host.jsx index.html .debug "$DEST/"
+fi
 
 echo ""
 echo "Sidekick instalado en:"

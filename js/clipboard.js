@@ -1,10 +1,14 @@
 /*
  * Sidekick - fotograma <-> portapapeles del sistema, como imagen.
  *
- * El puente entre Premiere y el portapapeles es un fichero PNG en disco:
- * Premiere solo sabe escribir fotogramas a disco e importar desde disco, y el
- * portapapeles solo se toca desde el lado HTML. cep.fs mueve los bytes entre
- * ambos, asi que el panel no necesita habilitar Node.js.
+ * El portapapeles NO se toca con navigator.clipboard: el CEF que embarca
+ * Premiere no da permiso de lectura y ClipboardItem no siempre existe, que es
+ * justo por lo que Copiar y Pegar no funcionaban. Se usa el portapapeles del
+ * sistema operativo (osascript en macOS, powershell en Windows) lanzado con
+ * cep.process, que es API nativa de CEP y no necesita habilitar Node.js.
+ *
+ * El puente sigue siendo un PNG en disco, porque Premiere solo sabe escribir
+ * fotogramas a disco e importar desde disco.
  */
 
 /* atob/btoa trabajan con cadenas binarias; se trocean para no reventar la pila
@@ -29,61 +33,131 @@ export async function blobToBase64(blob) {
 
 const fs = () => window.cep.fs;
 
+/* El usuario ve una frase limpia y traducible; el detalle tecnico (ruta,
+ * salida del script, tipos del portapapeles) va a la consola, que es donde
+ * sirve para arreglarlo. */
+function fail(key, detail) {
+  console.error(`[Sidekick] ${key}`, detail);
+  return new Error(key);
+}
+
 export function readFileBase64(path) {
   const r = fs().readFile(path, window.cep.encoding.Base64);
-  if (r.err) { throw new Error(`No puedo leer el fichero: ${path}`); }
+  if (r.err) { throw fail('Could not read the image file.', path); }
   return r.data;
 }
 
+/* cep.fs.stat no trae tamano fiable: con existir basta. */
+const exists = (path) => !fs().stat(path).err;
+
+/* --- Portapapeles del sistema -------------------------------------------- */
+
+const isMac = navigator.platform.startsWith('Mac');
+const PS = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
+const TMP = () => (isMac ? '/tmp/sidekick' : `${window.cep.fs.getUserHomeDirectory?.().data || '.'}\\sidekick`);
+
+function writeText(path, text) {
+  window.cep.fs.makedir(TMP());
+  const r = window.cep.fs.writeFile(path, text, window.cep.encoding.UTF8);
+  if (r.err) { throw fail('Could not write to the temporary folder.', path); }
+}
+
+function readText(path) {
+  const r = window.cep.fs.readFile(path, window.cep.encoding.UTF8);
+  return r.err ? '' : String(r.data);
+}
+
+/* El script va a un fichero y la salida a otro, en vez de pelearse con el
+ * escapado de comillas dentro de -e/-Command. Sin el log, un fallo de osascript
+ * llegaba al panel disfrazado de "no hay imagen en el portapapeles", que es
+ * exactamente lo que estaba pasando. */
+function runScript(source) {
+  const base = `${TMP()}/sk_${Date.now()}`;
+  const script = base + (isMac ? '.js' : '.ps1');
+  const log = `${base}.log`;
+  writeText(script, source);
+
+  const p = isMac
+    ? window.cep.process.createProcess('/bin/sh', '-c', `/usr/bin/osascript -l JavaScript "${script}" >"${log}" 2>&1`)
+    : window.cep.process.createProcess(PS, '-STA', '-NoProfile', '-File', script, '>', log);
+  if (p.err || p.data === undefined) {
+    throw fail('Could not reach the system clipboard.', p);
+  }
+  window.cep.process.waitfor(p.data);
+
+  const out = readText(log).trim();
+  window.cep.fs.deleteFile(script);
+  window.cep.fs.deleteFile(log);
+  // Sin salida es que el script ni llego a correr (osascript ausente, permisos,
+  // /tmp de solo lectura). Devolver "" aqui se traducia en "no hay imagen".
+  if (!out) { throw fail('Could not reach the system clipboard.', script); }
+  return out;
+}
+
+/* macOS: JXA sobre NSPasteboard, no AppleScript. NSImage lee y escribe
+ * cualquier formato que haya en el portapapeles (PNG, TIFF, PDF, JPEG...) sin
+ * pasar por sips, y el script es ASCII puro. Probado fuera de Premiere en los
+ * dos sentidos; si algo falla, el mensaje trae los tipos que si habia. */
+const JXA_COPY = (path) => [
+  "ObjC.import('AppKit');",
+  'var pb = $.NSPasteboard.generalPasteboard; pb.clearContents;',
+  `var img = $.NSImage.alloc.initWithContentsOfFile(${JSON.stringify(path)});`,
+  "img.isNil() ? 'read-failed' : (pb.writeObjects($.NSArray.arrayWithObject(img)) ? 'ok' : 'write-failed');",
+].join('\n');
+
+const JXA_PASTE = (path) => [
+  "ObjC.import('AppKit');",
+  'var pb = $.NSPasteboard.generalPasteboard;',
+  'var img = $.NSImage.alloc.initWithPasteboard(pb);',
+  "img.isNil() ? 'no-image ' + ObjC.deepUnwrap(pb.types).join(', ')",
+  // 4 = NSBitmapImageFileTypePNG. Sale PNG ya, sin sips.
+  `  : ($.NSBitmapImageRep.imageRepWithData(img.TIFFRepresentation).representationUsingTypeProperties(4, $()).writeToFileAtomically(${JSON.stringify(path)}, true) ? 'ok' : 'write-failed');`,
+].join('\n');
+
+/** Deja la imagen de `path` en el portapapeles. Devuelve el fichero usado. */
+export function copyFileToClipboard(path) {
+  if (isMac) {
+    const out = runScript(JXA_COPY(path));
+    if (out !== 'ok') { throw fail('Could not put the image in the clipboard.', out); }
+    return path;
+  }
+  runScript(
+    'Add-Type -AssemblyName System.Windows.Forms,System.Drawing\n'
+    // copy=$true: sin esto el portapapeles se vacia al morir el powershell.
+    + `$i=[System.Drawing.Image]::FromFile('${path.replace(/'/g, "''")}')\n`
+    + '[Windows.Forms.Clipboard]::SetDataObject($i,$true)\n',
+  );
+  return path;
+}
+
+/** Escribe la imagen del portapapeles en `path` (PNG). false si no habia. */
+export function clipboardToFile(path) {
+  window.cep.fs.deleteFile(path);
+
+  if (isMac) {
+    const out = runScript(JXA_PASTE(path));
+    if (out.startsWith('no-image')) {
+      // Lo que si hay va a la consola: asi se ve si Premiere ha pisado el
+      // portapapeles con lo suyo. Al usuario le vale con "no hay imagen".
+      console.warn('[Sidekick] clipboard types:', out.slice(9) || 'empty');
+      return false;
+    }
+    if (out !== 'ok') { throw fail('Could not read the image from the clipboard.', out); }
+    return exists(path);
+  }
+
+  runScript(
+    'Add-Type -AssemblyName System.Windows.Forms,System.Drawing\n'
+    + '$i=[Windows.Forms.Clipboard]::GetImage()\n'
+    + `if($i -ne $null){$i.Save('${path.replace(/'/g, "''")}',[System.Drawing.Imaging.ImageFormat]::Png)}\n`,
+  );
+  return exists(path);
+}
+
+/** El panel escribe a disco lo que el host le da en base64. */
 export function writeFileBase64(path, b64) {
-  const r = fs().writeFile(path, b64, window.cep.encoding.Base64);
-  if (r.err) { throw new Error(`No puedo escribir el fichero: ${path}`); }
-}
-
-/** Deja una imagen en el portapapeles del sistema. */
-export async function copyImage(blob) {
-  try {
-    await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
-    return;
-  } catch {
-    // ClipboardItem no esta en el CEF de las versiones viejas de Premiere.
-    // El plan B es copiar una seleccion que contiene la imagen, que si funciona.
-  }
-  const b64 = await blobToBase64(blob);
-  const holder = document.createElement('div');
-  holder.contentEditable = 'true';
-  holder.style.cssText = 'position:fixed;left:-9999px;top:0;';
-  holder.innerHTML = `<img src="data:${blob.type};base64,${b64}">`;
-  document.body.appendChild(holder);
-  try {
-    const range = document.createRange();
-    range.selectNodeContents(holder);
-    const sel = getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
-    if (!document.execCommand('copy')) { throw new Error('El portapapeles rechazó la imagen.'); }
-    sel.removeAllRanges();
-  } finally {
-    holder.remove();
-  }
-}
-
-/** La imagen que haya ahora en el portapapeles, o null. */
-export async function readImage() {
-  const items = await navigator.clipboard.read();
-  for (const item of items) {
-    const type = item.types.find((t) => t.startsWith('image/'));
-    if (type) { return item.getType(type); }
-  }
-  return null;
-}
-
-/** La imagen de un evento paste (Cmd+V), o null. */
-export function imageFromPasteEvent(event) {
-  for (const item of event.clipboardData?.items ?? []) {
-    if (item.type.startsWith('image/')) { return item.getAsFile(); }
-  }
-  return null;
+  const r = window.cep.fs.writeFile(path, b64, window.cep.encoding.Base64);
+  if (r.err) { throw fail('Could not save the frame to disk.', path); }
 }
 
 const EXT = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'image/tiff': 'tif' };
@@ -91,5 +165,5 @@ const EXT = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'imag
 /** Nombre unico y valido para la imagen pegada, con la extension que toque. */
 export function pastedFilename(type, now = new Date()) {
   const stamp = now.toISOString().replace(/[-:T]/g, '').slice(0, 14);
-  return `pegado_${stamp}.${EXT[type] || 'png'}`;
+  return `Sidekick_${stamp}.${EXT[type] || 'png'}`;
 }

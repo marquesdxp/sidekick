@@ -21,9 +21,9 @@ assert.equal(await blobToBase64(new Blob([big])), bigB64, 'las imagenes grandes 
 assert.deepEqual(new Uint8Array(await base64ToBlob(bigB64).arrayBuffer()), big);
 
 const at = new Date('2026-09-01T18:07:03Z');
-assert.equal(pastedFilename('image/png', at), 'pegado_20260901180703.png');
-assert.equal(pastedFilename('image/jpeg', at), 'pegado_20260901180703.jpg');
-assert.equal(pastedFilename('image/heic', at), 'pegado_20260901180703.png', 'tipo desconocido cae en .png');
+assert.equal(pastedFilename('image/png', at), 'Sidekick_20260901180703.png');
+assert.equal(pastedFilename('image/jpeg', at), 'Sidekick_20260901180703.jpg');
+assert.equal(pastedFilename('image/heic', at), 'Sidekick_20260901180703.png', 'tipo desconocido cae en .png');
 assert.ok(!/[\/\\:*?"<>|]/.test(pastedFilename('image/png', at)), 'nombre valido en disco');
 
 console.log('clipboard: todas las comprobaciones pasan');

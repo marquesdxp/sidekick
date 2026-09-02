@@ -1,170 +1,426 @@
 /*
- * Sidekick - Premiere pinta el panel sobre su propio fondo oscuro, asi que la
- * base es neutra y el amarillo se reserva para lo que se puede pulsar: es lo
- * unico que guia el ojo en un panel estrecho.
+ * Sidekick - el panel entero es una capsula de cristal con dos botones.
+ * Sin cabecera, sin pie: se funde con el panel de video que tenga encima.
+ * Linea grafica Marques DXP: amarillo sobre carbon.
  */
-:root {
-  --bg: #1b1b1b;
-  --card: #232323;
-  --field: #2b2b2b;
-  --line: #363636;
-  --fg: #ececec;
-  --muted: #8a8a8a;
-
-  --yellow: #f5c451;
-  --yellow-hi: #ffd66b;
-  --yellow-dim: rgba(245, 196, 81, 0.14);
-  --ink: #1b1b1b;        /* texto sobre amarillo; el blanco no tiene contraste */
-  --err: #ea7a7a;
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("../fonts/SpaceGrotesk-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-display: block;
 }
 
-* { box-sizing: border-box; }
+:root {
+  --bg:      #1c1c1c;
+  --text:    #f5f5f0;
+  --muted:   #c9c9c3;
+  --accent:  #ffcc00;
+  --accent-rgb: 255, 204, 0;
+  --error:   #ff5a4e;
+  --error-rgb: 255, 90, 78;
+  --ok:      #5ddc8c;
+  --ok-rgb:  93, 220, 140;
+  /* La altura de los botones: el unico numero a mano del panel. */
+  --tool-h:  clamp(38px, 10vmin, 52px);
+  --r:       14px;
+  /* Dos curvas: la suave para todo lo que se desplaza, la de muelle para lo que
+   * aparece. Y una duracion larga: la elegancia esta en no tener prisa. */
+  --ease:    cubic-bezier(0.16, 1, 0.3, 1);
+  --spring:  cubic-bezier(0.34, 1.4, 0.64, 1);
+  --dur:     0.7s;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }  /* el sprite de iconos, que no ocupe */
+
+/* El panel es una ventana fija: nada de barras de desplazamiento. */
+html, body { height: 100%; overflow: hidden; }
 
 body {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  margin: 0;
-  padding: 14px 14px 0;
+  position: relative;
   background: var(--bg);
-  color: var(--fg);
-  font: 12px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--text);
+  font-family: "Space Grotesk", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  font-weight: 700;
+  font-size: 14px;
   -webkit-font-smoothing: antialiased;
 }
 
-/* --- Cabecera ------------------------------------------------------------ */
-
-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
-
-h1 {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-}
-h1::before {
+/* --- La luz de fondo -------------------------------------------------------
+ * El cristal solo se ve si tiene algo detras que difuminar: dos manchas de
+ * luz ambar que van a la deriva muy despacio. Es lo que da vida al vidrio. */
+/* Cabe entero en el panel por bajo que sea (vmin, centrado en vertical) y se
+ * apaga solo con el degradado, sin filter: un blur se salia del borde y se
+ * veia una raya recta donde el panel lo cortaba. */
+body::before, body::after {
   content: "";
-  display: inline-block;
-  width: 6px; height: 6px;
-  margin-right: 7px;
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  width: 90vmin;
+  height: 90vmin;
+  margin-top: -45vmin;
   border-radius: 50%;
-  background: var(--yellow);
-  vertical-align: middle;
+  pointer-events: none;
+  will-change: transform;
+}
+body::before {
+  left: 8%;
+  background: radial-gradient(circle, rgba(var(--accent-rgb), 0.09), rgba(var(--accent-rgb), 0) 50%);
+  animation: drift-a 40s ease-in-out infinite alternate;
+}
+body::after {
+  right: 8%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0) 50%);
+  animation: drift-b 50s ease-in-out infinite alternate;
+}
+@keyframes drift-a { to { transform: translateX(14vw); } }
+@keyframes drift-b { to { transform: translateX(-12vw); } }
+
+/* --- La capsula ------------------------------------------------------------ */
+
+.stage {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 12px;
 }
 
-#ctx {
-  flex: 1;
+/* La capsula abraza a los botones y no se estira mas de lo que una frase
+ * necesita: en un panel ancho queda centrada, no de lado a lado. */
+.bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: min(100%, 620px);
+  padding: 6px;
+}
+
+/* El cristal: borde de luz arriba, sombra abajo, y el fondo difuminado detras. */
+.bar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: calc(var(--r) + 6px);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015));
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 10px 30px rgba(0, 0, 0, 0.35);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+}
+
+/* El anillo: un punto de luz que recorre el borde de la capsula sin parar.
+ * Un conic-gradient desde el centro no sirve: en una capsula ancha, en cuanto
+ * apunta de lado ilumina arriba y abajo a la vez. Esto es un recorrido de
+ * verdad: main.js dibuja el contorno (--ring-path, en px, cambia con el
+ * tamano) y la luz lo sigue con offset-path a velocidad constante. */
+.ring {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: calc(var(--r) + 6px);
+  padding: 1px;
   overflow: hidden;
-  text-overflow: ellipsis;
+  pointer-events: none;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+.ring::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 160px;
+  height: 160px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 55%);
+  offset-path: var(--ring-path, none);
+  offset-rotate: 0deg;
+  animation: travel 22s linear infinite;
+  will-change: offset-distance;
+}
+@keyframes travel { to { offset-distance: 100%; } }
+
+/* --- Los botones ------------------------------------------------------------ */
+
+/* En reposo se reparten la capsula; con frase a la vista se encogen a su
+ * contenido y la frase se queda con el resto. flex-grow es un numero: anima. */
+.tool {
+  position: relative;
+  z-index: 0;
+  flex: 1 1 auto;
+  min-width: 0;   /* que la etiqueta no saque el boton de la capsula */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55em;
+  height: var(--tool-h);
+  padding: 0 clamp(12px, 3vmin, 20px);
+  border-radius: var(--r);
+  overflow: hidden;
+  color: var(--accent);
+  cursor: pointer;
+  background:
+    linear-gradient(160deg, rgba(var(--accent-rgb), 0.10), rgba(var(--accent-rgb), 0.04));
+  border: 1px solid rgba(var(--accent-rgb), 0.16);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  transition:
+    flex-grow var(--dur) var(--ease),
+    background var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    transform 0.45s var(--spring);
+}
+
+.bar.is-msg .tool { flex-grow: 0; }
+
+.tool:hover {
+  background: linear-gradient(160deg, rgba(var(--accent-rgb), 0.26), rgba(var(--accent-rgb), 0.10));
+  border-color: rgba(var(--accent-rgb), 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 0 24px rgba(var(--accent-rgb), 0.18);
+}
+.tool:active { transform: scale(0.96); transition-duration: 0.12s; }
+.tool:disabled { opacity: 0.45; cursor: default; }
+
+/* El destello: una franja de luz que cruza el boton una vez al confirmar. */
+.tool::after {
+  content: "";
+  position: absolute;
+  top: -20%;
+  left: -60%;
+  width: 40%;
+  height: 140%;
+  background: linear-gradient(105deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.35) 50%, rgba(255, 255, 255, 0) 100%);
+  transform: skewX(-18deg) translateX(0);
+  opacity: 0;
+  pointer-events: none;
+}
+.tool.is-done::after { animation: sheen 1.1s var(--ease) 0.1s 1; }
+@keyframes sheen {
+  0%   { opacity: 0; transform: skewX(-18deg) translateX(0); }
+  15%  { opacity: 1; }
+  100% { opacity: 0; transform: skewX(-18deg) translateX(420%); }
+}
+
+ /* El primario es el ultimo que pulsaste y se queda asi hasta que pulses el
+ * otro: amarillo vivo. Al pulsar, ademas, parpadea en verde un instante. */
+.tool.is-primary {
+  background: linear-gradient(160deg, rgba(var(--accent-rgb), 0.24), rgba(var(--accent-rgb), 0.10));
+  border-color: rgba(var(--accent-rgb), 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 0 26px rgba(var(--accent-rgb), 0.16);
+}
+/* Mientras la frase esta a la vista, el boton entero en verde: es la senal de
+ * que se hizo. Al irse la frase vuelve al amarillo del primario. */
+.tool.is-done {
+  color: var(--ok);
+  background: linear-gradient(160deg, rgba(var(--ok-rgb), 0.30), rgba(var(--ok-rgb), 0.10));
+  border-color: rgba(var(--ok-rgb), 0.75);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 0 34px rgba(var(--ok-rgb), 0.32);
+}
+
+/* Icono y etiqueta: los dos estados apilados en la misma celda y cruzados con
+ * desenfoque, que es lo que hace que el cambio parezca fisico y no un corte. */
+.ico, .lbl { display: grid; }
+.ico > *, .lbl > * { grid-area: 1 / 1; }
+
+.ico svg {
+  width: clamp(18px, 3.6vmin, 26px);
+  height: clamp(18px, 3.6vmin, 26px);
+  fill: none;
+  transition: opacity 0.45s var(--ease), transform 0.6s var(--spring), filter 0.45s var(--ease);
+}
+.lbl {
+  font-size: clamp(14px, 2.4vmin, 18px);
+  font-weight: 700;
+  /* Space Grotesk no tiene Black: el trazo extra engorda la Bold un punto. */
+  -webkit-text-stroke: 0.35px currentColor;
+  letter-spacing: -0.04em;
   white-space: nowrap;
-  text-align: right;
-  color: var(--muted);
-  font-size: 11px;
+  line-height: 1;
+}
+.lbl > span { transition: opacity 0.45s var(--ease), transform 0.6s var(--spring), filter 0.45s var(--ease); }
+
+.ico-done, .lbl-done { opacity: 0; transform: scale(0.6) rotate(-30deg); filter: blur(4px); }
+.lbl-done { transform: translateY(0.5em); }
+.tool.is-done .ico-idle, .tool.is-done .lbl-idle { opacity: 0; transform: scale(0.6) rotate(30deg); filter: blur(4px); }
+.tool.is-done .lbl-idle { transform: translateY(-0.5em); }
+.tool.is-done .ico-done, .tool.is-done .lbl-done { opacity: 1; transform: none; filter: none; }
+
+/* Fallo: el boton entero en rojo mientras dura el mensaje. */
+.tool.is-err {
+  color: var(--error);
+  background: linear-gradient(160deg, rgba(var(--error-rgb), 0.28), rgba(var(--error-rgb), 0.10));
+  border-color: rgba(var(--error-rgb), 0.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 0 34px rgba(var(--error-rgb), 0.28);
 }
 
-/* --- Pestanas ------------------------------------------------------------ */
+/* --- El conmutador de pista -------------------------------------------------- */
 
-.tabs { display: flex; border-bottom: 1px solid var(--line); }
-
-.tab {
-  flex: 1;
-  padding: 8px 0 7px;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  background: none;
-  color: var(--muted);
-  font: inherit;
+/* Mismo cristal que los botones pero en gris y sin crecer: es un interruptor,
+ * no una accion. La flecha va dorada con trazo negro; el punto de abajo es la
+ * luz de CapsLock: apagado no se ve, encendido brilla en ambar. */
+.toggle {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tool-h);
+  height: var(--tool-h);
+  border-radius: var(--r);
   cursor: pointer;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.025));
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), transform 0.45s var(--spring);
 }
-.tab:hover { color: var(--fg); }
-.tab.is-on { color: var(--yellow); border-bottom-color: var(--yellow); }
-
-/* --- Contenido ----------------------------------------------------------- */
-
-section {
-  flex: 1;
-  padding: 14px;
-  margin-top: 12px;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 5px;
+.toggle svg {
+  width: clamp(18px, 3.6vmin, 26px);
+  height: clamp(18px, 3.6vmin, 26px);
+  color: #8a8a84;
+  opacity: 0.45;
+  transition: opacity var(--dur) var(--ease), color var(--dur) var(--ease), filter var(--dur) var(--ease), transform 0.45s var(--spring);
 }
-
-label { display: block; margin-bottom: 13px; color: var(--muted); }
-label b { color: var(--fg); font-weight: 600; }
-
-input {
-  width: 100%;
-  margin-top: 5px;
-  padding: 7px 9px;
-  background: var(--field);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  color: var(--fg);
-  font: inherit;
+.toggle:hover { background: linear-gradient(160deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04)); border-color: rgba(255, 255, 255, 0.18); }
+.toggle:hover svg { opacity: 0.7; }
+.toggle:active { transform: scale(0.94); transition-duration: 0.12s; }
+/* Apretado: la flecha se enciende en ambar y brilla; el boton se hunde un poco. */
+.toggle[aria-pressed="true"] {
+  background: linear-gradient(160deg, rgba(var(--accent-rgb), 0.12), rgba(var(--accent-rgb), 0.05));
+  border-color: rgba(var(--accent-rgb), 0.4);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.35), 0 0 18px rgba(var(--accent-rgb), 0.12);
 }
-input::placeholder { color: #5f5f5f; }
-input:focus {
-  outline: none;
-  border-color: var(--yellow);
-  box-shadow: 0 0 0 2px var(--yellow-dim);
+.toggle[aria-pressed="true"] svg {
+  color: var(--accent);
+  opacity: 1;
+  transform: translateY(-1px);
+  filter: drop-shadow(0 0 5px rgba(var(--accent-rgb), 0.85));
 }
 
-.row { display: flex; margin-top: 5px; }
-.row input { margin: 0; border-radius: 4px 0 0 4px; }
-.row button { flex: 0 0 34px; border-radius: 0 4px 4px 0; border-left: 0; }
+/* --- El mensaje ------------------------------------------------------------- */
 
-button {
-  padding: 8px 11px;
-  background: var(--field);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  color: var(--fg);
-  font: inherit;
-  cursor: pointer;
-  transition: background .12s, border-color .12s;
+/* Una sola linea; si no cabe, se corta. Entra con desenfoque de movimiento:
+ * borrosa y desplazada hacia el boton que la lanzo, y se asienta nitida. */
+#status {
+  flex: 0 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  justify-content: center;
+  text-align: center;
+  color: var(--ok);
+  /* Solo hay Space Grotesk en negrita; la frase va en la del sistema, media,
+   * mas apretada. Dos lineas si no cabe en una; mas, se corta. */
+  font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+  font-weight: 500;
+  font-size: clamp(12px, 2vmin, 15px);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  height: var(--tool-h);
+  border-radius: var(--r);
+  background: rgba(0, 0, 0, 0.42);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  opacity: 0;
+  filter: blur(8px);
+  transition:
+    flex-grow var(--dur) var(--ease),
+    padding var(--dur) var(--ease),
+    opacity 0.5s var(--ease),
+    filter 0.7s var(--ease),
+    transform 0.8s var(--ease),
+    color 0.5s var(--ease);
 }
-button:hover { background: #343434; border-color: #454545; }
-button:disabled { opacity: .45; cursor: default; }
-button:disabled:hover { background: var(--field); border-color: var(--line); }
+/* Entra desde el boton que la lanzo, pero siempre acaba centrada y siempre
+ * fuera de el: el desplazamiento solo vale mientras no esta encendida. */
+.bar.is-copy  #status:not(.is-on) { transform: translateX(-24px); }
+.bar.is-paste #status:not(.is-on) { transform: translateX(24px); }
+.bar.is-copy  #status { margin: 0 12px 0 4px; }
+.bar.is-paste #status { margin: 0 4px 0 12px; }
 
-button.primary {
-  background: var(--yellow);
-  border-color: var(--yellow);
-  color: var(--ink);
-  font-weight: 600;
+/* El sitio lo da la barra; la nitidez, la propia frase: main.js quita y pone
+ * is-on en cada mensaje, y asi la segunda frase entra igual que la primera. */
+.bar.is-msg #status { flex-grow: 1; padding: 0 14px; }
+#status.is-on { opacity: 1; filter: blur(0); transform: none; cursor: pointer; }
+#status.err { color: var(--error); }
+/* Mientras se descifra y cuando ya se ve la pelicula, en ambar. */
+#status.is-film { color: var(--accent); }
+
+/* Panel mas alto que ancho: los botones, solo icono y grandes, en los topes de
+ * arriba y abajo; la frase se queda con todo el medio, girada un cuarto a la
+ * izquierda para leerse de abajo arriba como en el lomo de un libro. */
+@media (orientation: portrait) {
+  .stage { align-items: stretch; }
+  .bar { flex-direction: column; gap: 6px; width: 100%; height: 100%; }
+  /* Sin frase, los dos botones se reparten todo el alto; con frase se encogen
+   * a su minimo y ella se queda con el medio. flex-grow anima el cambio. */
+  .tool {
+    flex: 1 1 auto;
+    width: 100%;
+    height: auto;
+    min-height: clamp(56px, 14vmin, 84px);
+    min-width: 0;
+    padding: 0;
+  }
+  .bar.is-msg .tool { flex-grow: 0; }
+  .toggle { width: 100%; height: clamp(34px, 9vmin, 44px); }
+  .lbl { display: none; }
+  .ico svg { width: clamp(26px, 6vmin, 40px); height: clamp(26px, 6vmin, 40px); }
+
+  /* Vertical-rl + media vuelta = lectura de abajo arriba; las lineas se
+   * apilan de izquierda a derecha. */
+  #status {
+    flex: 0 1 0;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    writing-mode: vertical-rl;
+    white-space: normal;
+    line-height: 1.3;
+    font-size: clamp(13px, 8vw, 18px);
+    transform: rotate(180deg);
+  }
+  .bar.is-msg #status { flex-grow: 1; padding: 10px 8px; margin: 0; }
+  .bar.is-copy #status:not(.is-on) { transform: rotate(180deg) translateX(-16px); }
+  .bar.is-paste #status:not(.is-on) { transform: rotate(180deg) translateX(16px); }
+  #status.is-on { transform: rotate(180deg); }
 }
-button.primary:hover { background: var(--yellow-hi); border-color: var(--yellow-hi); }
-button.primary:disabled:hover { background: var(--yellow); border-color: var(--yellow); }
 
-section > button { width: 100%; margin-bottom: 8px; }
-
-hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
-
-#preview {
-  display: block;
-  width: 100%;
-  margin: 4px 0 10px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: #000;
+/* Panel muy estrecho: menos margen, que el sitio es para los botones. */
+@media (max-width: 160px) {
+  .stage { padding: 8px; }
+  .bar { padding: 4px; }
+  .bar.is-msg #status { padding: 8px 4px; }
 }
 
-.muted { margin: 8px 0 0; color: var(--muted); font-size: 11px; }
-.err { color: var(--err); }
-.warn { color: var(--yellow); }
-
-/* --- Firma --------------------------------------------------------------- */
-
-footer { padding: 12px 0 10px; text-align: center; }
-
-footer a {
-  color: #6e6e6e;
-  font-size: 10px;
-  letter-spacing: .04em;
-  text-decoration: none;
-  cursor: pointer;
+/* Premiere nunca dibuja un panel CEP por debajo de 132px: si lo estrechas
+ * mas, recorta la derecha y la web no se entera (innerWidth sigue en 132).
+ * En vertical, la capsula se pega a la izquierda y no pasa de 100px con
+ * margenes, que es lo minimo a lo que se deja estrechar el dock. */
+@media (max-width: 160px) and (orientation: portrait) {
+  .stage { justify-content: flex-start; }
+  .bar { width: min(100%, 84px); }
+  /* Sin la luz de fondo: se sale por la derecha y se ve como un halo que
+   * continua en el panel de al lado. */
+  body::before, body::after { display: none; }
 }
-footer a:hover { color: var(--yellow); }
