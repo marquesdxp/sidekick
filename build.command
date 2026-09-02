@@ -9,6 +9,7 @@
 set -e
 cd "$(dirname "$0")"
 SIGN="${ZXPSIGNCMD:-tools/ZXPSignCmd}"
+[ -x "$SIGN" ] || [ ! -x "$SIGN.exe" ] || SIGN="$SIGN.exe"   # Windows (Git Bash)
 CERT=tools/sidekick.p12
 PASS="${ZXP_PASS:-sidekick}"
 VERSION=$(sed -n 's/.*ExtensionBundleVersion="\([^"]*\)".*/\1/p' CSXS/manifest.xml)
@@ -24,7 +25,12 @@ cp -R CSXS css fonts i18n host.jsx index.html "$STAGE/"
 mkdir "$STAGE/js"
 cp js/*.js "$STAGE/js/"
 rm -f "$OUT"
-"$SIGN" -sign "$STAGE" "$OUT" "$CERT" "$PASS" -tsa http://timestamp.digicert.com
+# The timestamp server crashes ZXPSignCmd 4.1.103 on Windows (access violation):
+# there the package goes unstamped, which ZXP Installer accepts all the same.
+case "$SIGN" in
+  *.exe) "$SIGN" -sign "$STAGE" "$OUT" "$CERT" "$PASS" ;;
+  *)     "$SIGN" -sign "$STAGE" "$OUT" "$CERT" "$PASS" -tsa http://timestamp.digicert.com ;;
+esac
 rm -rf "$STAGE"
 
 echo ""

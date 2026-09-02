@@ -34,3 +34,11 @@ assert.match(PS_COPY("C:\\a'b.png"), /'C:\\a''b.png'/);
 assert.match(PS_COPY('x.png'), /\n\$out='ok'$/);
 assert.match(PS_PASTE('x.png'), /'no-image '/);
 assert.match(PS_PASTE('x.png'), /;\$out='ok'\}$/);
+
+// systemPath: the raw CEP call answers a file:// URI with %20 for spaces. On
+// macOS "Application Support" has one; a %20 left in would break every write.
+const { cleanSystemPath } = await import('./cep.js');
+assert.equal(cleanSystemPath('file:///Users/a/Library/Application%20Support'), '/Users/a/Library/Application Support');
+assert.equal(cleanSystemPath('file:///C:/Users/a/AppData/Roaming'), 'C:/Users/a/AppData/Roaming');
+assert.equal(cleanSystemPath('/Users/a/Library/Application Support'), '/Users/a/Library/Application Support', 'plain paths pass through');
+console.log('systemPath: all checks pass');

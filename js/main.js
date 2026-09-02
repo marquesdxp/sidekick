@@ -1,7 +1,7 @@
 /*
  * Sidekick - panel logic.
  */
-import { evalScript, extensionPath, host, setFlyoutMenu } from './cep.js';
+import { evalScript, extensionPath, host, setFlyoutMenu, systemPath } from './cep.js';
 import { LANGS, applyDom, lang, setLang, t } from './i18n.js';
 import { getPhrase } from './quotes.js';
 import { clipboardToFile, copyFileToClipboard, pastedFilename, writeFileBase64 } from './clipboard.js';
@@ -15,13 +15,22 @@ const bar = document.querySelector('.bar');
 let side = 'copy';
 
 /* --- Preferences ---------------------------------------------------------- *
- * A JSON file in the home folder, not localStorage: the panel runs on file://
- * and Premiere wipes its CEP cache whenever it likes, taking everything with it. */
-const CFG_FILE = `${window.cep.fs.getUserHomeDirectory?.().data || '/tmp'}/.sidekick.json`;
+ * A JSON file in the user's data folder (~/Library/Application Support on
+ * macOS, %APPDATA% on Windows), not localStorage: the panel runs on file://
+ * and Premiere wipes its CEP cache whenever it likes, taking everything with
+ * it. Not the home folder: cep.fs can't tell where that is, and the "/tmp"
+ * fallback meant nothing was remembered on Windows. */
+const CFG_FILE = `${systemPath('userData')}/sidekick.json`;
+// Where 0.2.0 left it on macOS: read once so nothing is forgotten on upgrade.
+const OLD_CFG_FILE = '/tmp/.sidekick.json';
 
 function loadCfg() {
-  const r = window.cep.fs.readFile(CFG_FILE, window.cep.encoding.UTF8);
-  try { return r.err ? {} : JSON.parse(r.data || '{}'); } catch { return {}; }
+  for (const file of [CFG_FILE, OLD_CFG_FILE]) {
+    const r = window.cep.fs.readFile(file, window.cep.encoding.UTF8);
+    if (r.err) { continue; }
+    try { return JSON.parse(r.data || '{}'); } catch { /* corrupt: try the next */ }
+  }
+  return {};
 }
 
 const cfg = loadCfg();
@@ -160,6 +169,8 @@ async function pasteImage() {
 function fail(btn, err) {
   shown = null;
   mark(btn, 'is-err');
+  // The detail host.jsx attaches (what Premiere answered) is for the console.
+  console.error('[Sidekick]', err.message, ...(err.args || []));
   say(t(err.message, ...(err.args || [])), 'err');
 }
 

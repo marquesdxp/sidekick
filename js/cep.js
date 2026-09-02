@@ -74,3 +74,19 @@ export function setFlyoutMenu(items, onClick) {
 export function extensionPath() {
   return cep ? cep.getSystemPath('extension') : '';
 }
+
+/* CEP's own folders as plain paths. 'userData' is ~/Library/Application
+ * Support on macOS and %APPDATA% on Windows: always writable, unlike anything
+ * relative to Premiere's working directory.
+ * The raw call answers a file:// URI with %20 for spaces; this is the same
+ * clean-up CSInterface.getSystemPath does. Forward slashes on both platforms,
+ * which cep.fs and PowerShell accept on Windows. */
+export function cleanSystemPath(raw) {
+  return decodeURI(String(raw))
+    .replace(/^file:\/\/\/([a-zA-Z]:)/, '$1')   // file:///C:/x -> C:/x
+    .replace(/^file:\/\//, '');                 // file:///Users/x -> /Users/x
+}
+
+export function systemPath(kind) {
+  return cep ? cleanSystemPath(cep.getSystemPath(kind)) : '';
+}

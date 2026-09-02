@@ -11,6 +11,8 @@
  * to disk and import from disk.
  */
 
+import { systemPath } from './cep.js';
+
 /* atob/btoa work on binary strings; chunked so a multi-megabyte image doesn't
  * blow the stack through apply. */
 const CHUNK = 0x8000;
@@ -53,7 +55,10 @@ const exists = (path) => !fs().stat(path).err;
 
 const isMac = navigator.platform.startsWith('Mac');
 const PS = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
-const TMP = () => (isMac ? '/tmp/sidekick' : `${window.cep.fs.getUserHomeDirectory?.().data || '.'}\\sidekick`);
+// cep.fs has no "home" call: getUserHomeDirectory?.() was always undefined and
+// Windows ended up with ".\sidekick", relative to Premiere's folder in Program
+// Files, which is read-only. userData (%APPDATA%) is always writable.
+const TMP = () => (isMac ? '/tmp/sidekick' : `${systemPath('userData').replace(/\//g, '\\')}\\sidekick`);
 
 function writeText(path, text) {
   window.cep.fs.makedir(TMP());

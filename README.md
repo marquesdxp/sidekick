@@ -46,7 +46,8 @@ the same on every project that shares your folder structure, and on every
 machine. A folder on another drive is kept absolute.
 
 **Three languages.** English, Spanish and Brazilian Portuguese, picked from
-**≡ → Language** and remembered in `~/.sidekick.json`. Anything not translated
+**≡ → Language** and remembered in `sidekick.json` in your user data folder
+(`~/Library/Application Support` on macOS, `%APPDATA%` on Windows). Anything not translated
 falls back to English. Every confirmation is a movie quote; click it to reveal
 the film.
 

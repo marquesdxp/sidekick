@@ -70,6 +70,11 @@ function sk_sig(obj, name) {
     }
 }
 
+/* The native form of a path ("C:\a\b.png" on Windows). The exporters are not
+ * ExtendScript: a mixed "C:\a/b.png" made Premiere on Windows raise "An error
+ * occurred while exporting the frame". */
+function sk_native(p) { return (new File(p)).fsName; }
+
 /* QE is Premiere's internal DOM: exportFramePNG has always lived there, also
  * in the versions that removed it from the public DOM. */
 function sk_qeFrame(path) {
@@ -117,7 +122,7 @@ function skExportFrame() {
         var last = "";
 
         // QE first: it works on every known version.
-        var qePath = dir.fsName + "/frame_" + stamp + ".png";
+        var qePath = sk_native(dir.fsName + "/frame_" + stamp + ".png");
         try {
             last = sk_qeFrame(qePath);
             if (!last) { return "ok\tpath\t" + qePath + "\t"; }
@@ -126,7 +131,7 @@ function skExportFrame() {
         }
 
         if (typeof seq.renderVideoFrameAtTime === "function") {
-            var dest = dir.fsName + "/frame_" + stamp + ".png";
+            var dest = sk_native(dir.fsName + "/frame_" + stamp + ".png");
             // Neither the time type nor the argument count is documented and
             // both change between builds: ticks (string), Time object or
             // seconds, with and without a target path. Every combination is
@@ -151,7 +156,7 @@ function skExportFrame() {
         for (var i = 0; i < SK_EXPORTERS.length; i++) {
             var fn = SK_EXPORTERS[i][0];
             if (typeof seq[fn] !== "function") { continue; }
-            var path = dir.fsName + "/frame_" + stamp + "." + SK_EXPORTERS[i][1];
+            var path = sk_native(dir.fsName + "/frame_" + stamp + "." + SK_EXPORTERS[i][1]);
             try {
                 seq[fn](pos.ticks, path);
             } catch (inner) {
@@ -361,18 +366,44 @@ function sk_outTicks(item, type) {
  * next clip.
  * setOutPoint's mediaType doesn't mean the same on every build, so the known
  * ones are tried and the result is verified by reading back what stuck. */
+/* A Time built both ways: through ticks (the documented setter) and through
+ * seconds, which is the one some builds actually honour. */
+function sk_timeForm(ticks, form) {
+    if (form === 0) { return sk_timeFromTicks(ticks); }
+    var t = new Time();
+    t.seconds = ticks / 254016000000;
+    return t;
+}
+
+/* Returns "" when the item's out point sits inside the gap (never past it,
+ * at most `tolerance` short: the clip is stretched to the edge after insert).
+ * A still snaps its out point to ITS frame rate (the "indeterminate media
+ * timebase" preference), not the sequence's: when the snap lands past the
+ * gap, less is asked for and read back again. On failure returns what every
+ * attempt read back, for the console. */
 function sk_trimItem(item, ticks, tolerance) {
-    var types = [4, 1, 2];
-    for (var i = 0; i < types.length; i++) {
-        try {
-            item.setInPoint(sk_timeFromTicks(0), types[i]);
-            item.setOutPoint(sk_timeFromTicks(ticks), types[i]);
-        } catch (e) {
-            continue;
+    var types = [4, 1, 2], seen = [];
+    for (var form = 0; form < 2; form++) {
+        for (var i = 0; i < types.length; i++) {
+            var target = ticks;
+            for (var attempt = 0; attempt < 4; attempt++) {
+                try {
+                    item.setInPoint(sk_timeForm(0, form), types[i]);
+                    item.setOutPoint(sk_timeForm(target, form), types[i]);
+                } catch (e) {
+                    seen.push("type " + types[i] + "/" + form + " threw " + e.toString());
+                    break;
+                }
+                var got = sk_outTicks(item, types[i]);
+                seen.push("type " + types[i] + "/" + form + " asked " + target + " got " + got);
+                if (got <= ticks && ticks - got <= tolerance) { return ""; }
+                // Past the gap: the snap rounded up. Ask for that much less.
+                if (got > ticks) { target -= (got - ticks) || tolerance; continue; }
+                break;   // far too short: the setter didn't take, try the next
+            }
         }
-        if (Math.abs(sk_outTicks(item, types[i]) - ticks) <= tolerance) { return true; }
     }
-    return false;
+    return seen.join("; ");
 }
 
 /* Imports the image and places it at the playhead. */
@@ -409,9 +440,12 @@ function skImportImage(path, top) {
             // Premiere's default duration is kept.
             next = sk_nextClipStart(track, at);
             gap = next ? next - at : 0;
-            if (gap && !sk_trimItem(item, gap, frame)) {
+            // Two frames of slack: a still snaps to its own frame rate, which
+            // may be coarser than the sequence's. The sliver is filled below.
+            var why = gap ? sk_trimItem(item, gap, frame * 2) : "";
+            if (why) {
                 return "err\tThe {0} s gap is too short for the image and pasting would eat the next clip. The image is in the Sidekick bin.\t"
-                     + (gap / 254016000000).toFixed(2);
+                     + (gap / 254016000000).toFixed(2) + "\t" + "gap " + gap + " ticks, frame " + frame + ": " + why;
             }
             track.overwriteClip(item, pos.seconds);
         }
