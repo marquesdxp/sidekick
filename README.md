@@ -1,8 +1,8 @@
-<h1 align="center">Sidekick · Copy &amp; Paste to Premiere Pro</h1>
+<h1 align="center">Sidekick</h1>
 
 <p align="center">
-  A tiny panel for Adobe Premiere Pro: copy the current frame to your clipboard,<br>
-  paste any image from your clipboard straight onto the timeline.
+  <b>Copy any frame. Paste any image. Straight onto your Premiere Pro timeline.</b><br>
+  Premiere still won't let you copy and paste images. Sidekick does, in one click.
 </p>
 
 <p align="center">
@@ -79,8 +79,7 @@ Where it ends up, in case you ever want to remove it by hand:
 
 **Without a ZXP:** clone the repository and double-click **`install.command`**
 (macOS) or **`install.bat`** (Windows). It copies the panel into the folder
-above and turns on CEP debug mode, which lets Premiere load an unsigned
-extension. On macOS, if Gatekeeper refuses to open the script, right-click it
+above and lets Premiere load it. On macOS, if Gatekeeper refuses to open the script, right-click it
 and choose **Open**.
 
 ## Development
