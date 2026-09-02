@@ -13,6 +13,16 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/marquesdxp/sidekick/releases/latest"><img alt="Download Sidekick" src="https://img.shields.io/badge/%E2%AC%87%20Download%20Sidekick-.zxp%20for%20macOS%20%26%20Windows-FFCC00?style=for-the-badge&labelColor=1c1c1c" height="36"></a>
+  &nbsp;
+  <a href="#install"><img alt="Install guide" src="https://img.shields.io/badge/Install%20guide-macOS%20%7C%20Windows-1c1c1c?style=for-the-badge" height="36"></a>
+</p>
+
+<p align="center">
+  <img src="sidekick-screenshot.png" alt="Sidekick panel in Premiere Pro: Copied confirmation, Paste button and Paste on top toggle" width="820">
+</p>
+
+<p align="center">
   <a href="https://www.buymeacoffee.com/marquesdxp"><img src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=&slug=marquesdxp&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" alt="Buy me a coffee" height="40"></a>
 </p>
 
@@ -53,18 +63,25 @@ the film.
 
 ## Install
 
-Requires Premiere Pro 15 or later, on macOS or Windows.
+Requires Premiere Pro 15 or later. Same `.zxp` for macOS and Windows.
 
-**Users:** download `Sidekick-x.y.z.zxp` from the
-[releases page](https://github.com/marquesdxp/sidekick/releases) and install it
-with [ZXP Installer](https://aescripts.com/learn/zxp-installer/) (free, macOS and
-Windows): drag the file in and you're done. Restart Premiere and open it from
-**Window → Extensions → Sidekick**.
+1. Download **`Sidekick-x.y.z.zxp`** from the [latest release](https://github.com/marquesdxp/sidekick/releases/latest).
+2. Install [ZXP Installer](https://aescripts.com/learn/zxp-installer/) (free, macOS and Windows) if you don't have it.
+3. Quit Premiere Pro, open ZXP Installer and drag the `.zxp` into it.
+4. Start Premiere Pro and open **Window → Extensions → Sidekick**.
+
+Where it ends up, in case you ever want to remove it by hand:
+
+| | Extension folder |
+|---|---|
+| **macOS** | `~/Library/Application Support/Adobe/CEP/extensions/com.andersonmarques.sidekick` |
+| **Windows** | `%APPDATA%\Adobe\CEP\extensions\com.andersonmarques.sidekick` |
 
 **Without a ZXP:** clone the repository and double-click **`install.command`**
-(macOS) or **`install.bat`** (Windows). It copies the panel into the extensions
-folder and turns on CEP debug mode, which lets Premiere load an unsigned
-extension.
+(macOS) or **`install.bat`** (Windows). It copies the panel into the folder
+above and turns on CEP debug mode, which lets Premiere load an unsigned
+extension. On macOS, if Gatekeeper refuses to open the script, right-click it
+and choose **Open**.
 
 ## Development
 
