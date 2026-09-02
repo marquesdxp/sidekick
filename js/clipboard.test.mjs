@@ -2,7 +2,7 @@
  * node js/clipboard.test.mjs
  * Un fallo aqui corrompe la imagen en silencio, que es lo peor que puede pasar. */
 import assert from 'node:assert/strict';
-import { base64ToBlob, blobToBase64, pastedFilename } from './clipboard.js';
+import { PS_COPY, PS_PASTE, base64ToBlob, blobToBase64, pastedFilename } from './clipboard.js';
 
 // Cabecera PNG real: bytes altos y un 0x00, justo lo que rompe una conversion
 // hecha con cadenas en vez de con bytes.
@@ -27,3 +27,11 @@ assert.equal(pastedFilename('image/heic', at), 'Sidekick_20260901180703.png', 't
 assert.ok(!/[\/\\:*?"<>|]/.test(pastedFilename('image/png', at)), 'nombre valido en disco');
 
 console.log('clipboard: todas las comprobaciones pasan');
+
+// Windows: el panel lee 'ok' / 'no-image' de la salida; un script mudo se lee
+// como "no he podido acceder al portapapeles". Y la comilla se escapa a la
+// PowerShell, doblandola, o una ruta con apostrofe rompe el script.
+assert.match(PS_COPY("C:\\a'b.png"), /'C:\\a''b.png'/);
+assert.match(PS_COPY('x.png'), /\n\$out='ok'$/);
+assert.match(PS_PASTE('x.png'), /'no-image '/);
+assert.match(PS_PASTE('x.png'), /;\$out='ok'\}$/);

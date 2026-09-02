@@ -48,18 +48,22 @@ el idioma **de Premiere**, no el del sistema: por eso el menú manda sobre él.
 
 ## Instalación
 
-Requiere Premiere Pro 15 o superior.
+Requiere Premiere Pro 15 o superior, en macOS o Windows.
 
-Descarga el repositorio y haz doble clic en **`install.command`** (macOS) o
-**`install.bat`** (Windows). Copia el panel a la carpeta de extensiones y activa
-el modo depuración de CEP, que es lo que permite a Premiere cargar una extensión
-sin certificado. Reinicia Premiere y ábrelo en
-**Ventana → Extensiones → Sidekick**.
+**Usuarios:** descarga `Sidekick-x.y.z.zxp` de la página de releases e
+instálalo con [ZXP Installer](https://aescripts.com/learn/zxp-installer/)
+(gratis, macOS y Windows): arrastras el fichero y listo. Reinicia Premiere y
+ábrelo en **Ventana → Extensiones → Sidekick**.
 
-Sidekick no va firmado a propósito: firmar un `.zxp` exige un certificado y no
-aporta nada cuando la instalación es local. Si algún día hace falta distribuirlo
-por Adobe Exchange, se firma con `ZXPSignCmd` y el modo depuración deja de ser
-necesario.
+**Sin ZXP:** descarga el repositorio y haz doble clic en **`install.command`**
+(macOS) o **`install.bat`** (Windows). Copia el panel a la carpeta de
+extensiones y activa el modo depuración de CEP, que es lo que permite a
+Premiere cargar una extensión sin firmar.
+
+**Empaquetar el .zxp:** `./build.command`. Necesita `ZXPSignCmd` (de
+[CEP-Resources](https://github.com/Adobe-CEP/CEP-Resources), carpeta
+`ZXPSignCMD/`) en `tools/`; el certificado autofirmado se crea solo la primera
+vez y no va al repositorio.
 
 Para desarrollar, `./install.command --link` enlaza en vez de copiar: editas el
 repositorio y basta con el botón ↻ del panel, sin reinstalar ni reiniciar

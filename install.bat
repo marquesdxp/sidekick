@@ -13,6 +13,7 @@ xcopy /e /i /y /q "%~dp0CSXS" "%DEST%\CSXS" >nul
 xcopy /e /i /y /q "%~dp0css"  "%DEST%\css"  >nul
 xcopy /e /i /y /q "%~dp0js"   "%DEST%\js"   >nul
 xcopy /e /i /y /q "%~dp0i18n" "%DEST%\i18n" >nul
+xcopy /e /i /y /q "%~dp0fonts" "%DEST%\fonts" >nul
 copy /y "%~dp0host.jsx"   "%DEST%\" >nul
 copy /y "%~dp0index.html" "%DEST%\" >nul
 

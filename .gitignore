@@ -1,3 +1,7 @@
 # Nunca en git: config local del panel
 *.zxp
 .DS_Store
+# Empaquetado: el certificado es tuyo y el .zxp se genera
+dist/
+tools/
+*.p12
