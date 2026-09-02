@@ -1,18 +1,15 @@
 /*
  * Sidekick - host.jsx (ExtendScript, Premiere Pro)
  *
- * Proyecto independiente. Sin relacion alguna con Postline ni con ningun otro
- * plugin. Ni una linea de codigo compartida. Ver README.md.
+ * Every value goes back to the panel as tab-separated strings:
+ *   "ok\t<field>\t<field>..."  |  "err\t<message>\t<arg>..."
  *
- * Todos los valores se devuelven al panel como cadenas separadas por tabulador:
- *   "ok\t<campo>\t<campo>..."  |  "err\t<mensaje>\t<arg>..."
- *
- * Los mensajes van en ingles y en ASCII puro: ExtendScript lee este fichero
- * con la codificacion del sistema (Mac Roman en Mac) y cualquier acento sale
- * roto. Es el panel quien los traduce (la clave ES el texto en ingles) y quien
- * mete los <arg> en los {0}.
- * ExtendScript no trae JSON, y un split("\t") es mas barato que embarcar un
- * polyfill para tres campos.
+ * Messages are English and pure ASCII: ExtendScript reads this file with the
+ * system encoding (Mac Roman on Mac) and any accent comes out broken. The
+ * panel translates them (the key IS the English text) and fills the <arg>s
+ * into the {0}s.
+ * ExtendScript has no JSON, and a split("\t") is cheaper than shipping a
+ * polyfill for three fields.
  */
 
 function sk_clean(name) {
@@ -24,10 +21,10 @@ function sk_activeSequence() {
     return app.project.activeSequence || null;
 }
 
-/* --- API que llama el panel --------------------------------------------- */
+/* --- API called by the panel ---------------------------------------------- */
 
-/* El nombre del proyecto es la clave con la que el panel busca a que cliente
- * hay que avisar, asi que se devuelve siempre, haya secuencia activa o no. */
+/* The project name is always returned, whether there's an active sequence or
+ * not. */
 function skGetContext() {
     try {
         if (!app.project) { return "err\tNo project is open."; }
@@ -39,21 +36,15 @@ function skGetContext() {
     }
 }
 
-/* --- Portapapeles de imagen --------------------------------------------- */
-/* Copiar: Premiere solo sabe escribir un fotograma a disco, asi que se exporta
- * a una carpeta temporal y el panel se encarga de meterlo en el portapapeles.
- * Pegar: el panel deja el fichero en disco y aqui se importa y se coloca. */
+/* --- Image clipboard ------------------------------------------------------ */
+/* Copy: Premiere can only write a frame to disk, so it's exported to a temp
+ * folder and the panel puts it on the clipboard.
+ * Paste: the panel leaves the file on disk and here it's imported and placed. */
 
-function sk_folder(path) {
-    var f = new Folder(path);
-    if (!f.exists) { f.create(); }
-    return f;
-}
-
-/* Premiere 25 se llevo por delante exportFramePNG y compania: en su sitio esta
- * renderVideoFrameAtTime, que no escribe a disco sino que devuelve la imagen.
- * Se prueba lo nuevo primero y lo viejo despues, porque el panel tiene que
- * funcionar en las dos generaciones. */
+/* Premiere 25 removed exportFramePNG and friends: in their place there's
+ * renderVideoFrameAtTime, which doesn't write to disk but returns the image.
+ * The new one is tried first and the old ones after, because the panel has to
+ * work on both generations. */
 var SK_EXPORTERS = [
     ["exportFramePNG", "png"],
     ["exportFrameTIFF", "tif"],
@@ -65,8 +56,8 @@ function sk_methods(obj) {
     try { return obj.reflect.methods.join(", "); } catch (e) { return "?"; }
 }
 
-/* Firma real de un metodo segun ExtendScript: nombre y tipo de cada argumento.
- * Es la unica documentacion que hay de renderVideoFrameAtTime. */
+/* A method's real signature according to ExtendScript: name and type of each
+ * argument. It's the only documentation renderVideoFrameAtTime has. */
 function sk_sig(obj, name) {
     try {
         var m = obj.reflect.find(name);
@@ -79,21 +70,21 @@ function sk_sig(obj, name) {
     }
 }
 
-/* QE es el DOM interno de Premiere: exportFramePNG vive ahi desde siempre,
- * tambien en las versiones que lo quitaron del DOM publico. */
+/* QE is Premiere's internal DOM: exportFramePNG has always lived there, also
+ * in the versions that removed it from the public DOM. */
 function sk_qeFrame(path) {
     app.enableQE();
     var q = qe.project.getActiveSequence();
-    if (!q) { return "QE: no hay secuencia activa"; }
-    if (typeof q.exportFramePNG !== "function") { return "QE sin exportFramePNG. Metodos QE: " + sk_methods(q); }
-    // QE le pega ".png" a lo que le des: se le pasa la ruta sin extension.
+    if (!q) { return "QE: no active sequence"; }
+    if (typeof q.exportFramePNG !== "function") { return "QE has no exportFramePNG. QE methods: " + sk_methods(q); }
+    // QE appends ".png" to whatever you give it: pass the path without extension.
     q.exportFramePNG(q.CTI.timecode, path.replace(/\.png$/, ""));
-    return (new File(path)).exists ? "" : "QE exportFramePNG no escribio " + path;
+    return (new File(path)).exists ? "" : "QE exportFramePNG did not write " + path;
 }
 
-/* renderVideoFrameAtTime no documenta que devuelve, y no es igual en todas las
- * builds: puede ser una ruta, un data URI o base64 pelado. Se acepta cualquiera
- * de las tres en vez de apostar por una. */
+/* renderVideoFrameAtTime doesn't document what it returns, and it differs
+ * between builds: a path, a data URI or bare base64. All three are accepted
+ * instead of betting on one. */
 function sk_frameResult(out, path) {
     if (out === null || out === undefined || out === false) { return null; }
     if (typeof out === "object") {
@@ -105,7 +96,7 @@ function sk_frameResult(out, path) {
     if (s.substring(0, 11) === "data:image/") {
         return "ok\tb64\t" + path + "\t" + s.substring(s.indexOf(",") + 1);
     }
-    // Base64 pelado: largo y sin caracteres de ruta. Un path nunca lo parece.
+    // Bare base64: long and without path characters. A path never looks like it.
     if (s.length > 256 && s.indexOf("/") === -1 && s.indexOf("\\") === -1) {
         return "ok\tb64\t" + path + "\t" + s;
     }
@@ -113,19 +104,19 @@ function sk_frameResult(out, path) {
     return null;
 }
 
-/* Exporta el fotograma bajo el cursor de reproduccion.
- * Devuelve "ok\tpath\t<ruta>\t" o "ok\tb64\t<ruta destino>\t<base64>". */
+/* Exports the frame under the playhead.
+ * Returns "ok\tpath\t<path>\t" or "ok\tb64\t<target path>\t<base64>". */
 function skExportFrame() {
     try {
         var seq = sk_activeSequence();
         if (!seq) { return "err\tNo active sequence."; }
 
-        var dir = sk_folder(Folder.temp.fsName + "/sidekick");
+        var dir = sk_mkdirp(sk_resolve(Folder.temp.fsName, "sidekick"));
         var stamp = (new Date()).getTime();
         var pos = seq.getPlayerPosition();
         var last = "";
 
-        // Primero QE, que es lo que funciona en todas las versiones conocidas.
+        // QE first: it works on every known version.
         var qePath = dir.fsName + "/frame_" + stamp + ".png";
         try {
             last = sk_qeFrame(qePath);
@@ -136,10 +127,10 @@ function skExportFrame() {
 
         if (typeof seq.renderVideoFrameAtTime === "function") {
             var dest = dir.fsName + "/frame_" + stamp + ".png";
-            // Ni el tipo del tiempo ni el numero de argumentos estan
-            // documentados y cambian entre builds: ticks (cadena), objeto Time
-            // o segundos, con y sin ruta de destino. Se prueban todas las
-            // combinaciones y gana la primera que devuelva algo.
+            // Neither the time type nor the argument count is documented and
+            // both change between builds: ticks (string), Time object or
+            // seconds, with and without a target path. Every combination is
+            // tried and the first one returning something wins.
             var times = [pos.ticks, pos, pos.seconds, Number(pos.ticks)];
             for (var a = 0; a < times.length; a++) {
                 for (var b = 0; b < 2; b++) {
@@ -149,7 +140,7 @@ function skExportFrame() {
                         var got = sk_frameResult(out, dest);
                         if (got) { return got; }
                         if ((new File(dest)).exists) { return "ok\tpath\t" + dest + "\t"; }
-                        last = "renderVideoFrameAtTime devolvio nada util";
+                        last = "renderVideoFrameAtTime returned nothing useful";
                     } catch (rv) {
                         last = "renderVideoFrameAtTime: " + rv.toString();
                     }
@@ -177,16 +168,90 @@ function skExportFrame() {
     }
 }
 
-/* Carpeta donde el panel debe dejar la imagen pegada.
- * Junto al .prproj y NUNCA en el temporal del sistema: Premiere queda enlazado
- * a este fichero, y si se borra el proyecto se queda con material offline. */
-function skPasteDir() {
+/* --- Paths ---------------------------------------------------------------- */
+/* Everything is joined with "/" and normalised here, on both platforms:
+ * ExtendScript accepts forward slashes on Windows, and fsName gives back the
+ * native form when the panel needs it. */
+
+var SK_WIN = $.os.indexOf("Windows") === 0;
+
+function sk_isAbsolute(p) { return /^([a-zA-Z]:|\\\\|\/)/.test(p); }
+
+function sk_segments(p) {
+    var parts = String(p).split(/[\/\\]+/), out = [];
+    for (var i = 0; i < parts.length; i++) { if (parts[i] !== "") { out.push(parts[i]); } }
+    return out;
+}
+
+/* base + relative, resolving "." and "..". Returns "a/b/c" or "C:/a/b". */
+function sk_resolve(base, rel) {
+    var segs = sk_segments(base).concat(sk_segments(rel)), out = [];
+    for (var i = 0; i < segs.length; i++) {
+        if (segs[i] === ".") { continue; }
+        if (segs[i] === "..") { if (out.length > 1 || (out.length === 1 && !/^[a-zA-Z]:$/.test(out[0]))) { out.pop(); } continue; }
+        out.push(segs[i]);
+    }
+    return (SK_WIN ? "" : "/") + out.join("/");
+}
+
+/* Path from `base` to `target` as "../IMAGES"; absolute if they don't share a
+ * root (another drive, on Windows). */
+function sk_relative(base, target) {
+    var a = sk_segments(base), b = sk_segments(target), i = 0;
+    var same = function (x, y) { return SK_WIN ? x.toLowerCase() === y.toLowerCase() : x === y; };
+    while (i < a.length && i < b.length && same(a[i], b[i])) { i++; }
+    if (i === 0) { return target; }
+    var up = [];
+    for (var j = i; j < a.length; j++) { up.push(".."); }
+    var rel = up.concat(b.slice(i)).join("/");
+    return rel || ".";
+}
+
+/* Folder.create() only makes the last segment: walk up first. */
+function sk_mkdirp(path) {
+    var f = new Folder(path);
+    if (f.exists) { return f; }
+    if (f.parent && !f.parent.exists) { sk_mkdirp(f.parent.fsName); }
+    f.create();
+    return f;
+}
+
+function sk_projectDir() {
+    if (!app.project || !app.project.path) { return null; }
+    return (new File(app.project.path)).parent;
+}
+
+/* Folder where the panel must leave the pasted image.
+ * By default "Sidekick" next to the .prproj; `custom` can be a path relative
+ * to the project ("../IMAGES") or absolute. NEVER the system temp: Premiere
+ * stays linked to this file, and a wiped temp folder leaves offline media. */
+function skPasteDir(custom) {
     try {
-        if (!app.project || !app.project.path) {
-            return "err\tSave the project before pasting: the image needs a folder to live in.";
+        var proj = sk_projectDir();
+        var path;
+        if (custom && sk_isAbsolute(custom)) {
+            path = sk_resolve(custom, "");
+        } else {
+            if (!proj) { return "err\tSave the project before pasting: the image needs a folder to live in."; }
+            path = sk_resolve(proj.fsName, custom || "Sidekick");
         }
-        var projFile = new File(app.project.path);
-        return "ok\t" + sk_folder(projFile.parent.fsName + "/Sidekick").fsName + "\t";
+        var f = sk_mkdirp(path);
+        if (!f.exists) { return "err\tCould not create the paste folder: {0}\t" + f.fsName; }
+        return "ok\t" + f.fsName + "\t";
+    } catch (e) {
+        return "err\tPremiere threw an error: {0}\t" + e.toString();
+    }
+}
+
+/* Native folder picker. Returns the choice relative to the project when the
+ * project is saved ("../IMAGES"), absolute otherwise; empty if cancelled. */
+function skPickDir() {
+    try {
+        var proj = sk_projectDir();
+        var start = proj || Folder.desktop;
+        var f = start.selectDlg ? start.selectDlg("Paste folder") : Folder.selectDialog("Paste folder");
+        if (!f) { return "ok\t\t"; }
+        return "ok\t" + (proj ? sk_relative(proj.fsName, f.fsName) : f.fsName) + "\t";
     } catch (e) {
         return "err\tPremiere threw an error: {0}\t" + e.toString();
     }
@@ -201,10 +266,10 @@ function sk_bin(name) {
     return root.createBin(name);
 }
 
-/* Todo lo que sea colocar o medir va en ticks, nunca en segundos: los segundos
- * son float y por eso quedaban fotogramas sueltos al final del hueco. Un tick
- * cabe de sobra en un double (9e14 para una hora, contra los 9e15 que aguanta),
- * asi que Number() sobre la cadena es exacto. */
+/* Everything that places or measures works in ticks, never seconds: seconds
+ * are floats and that's why stray frames were left at the end of the gap. A
+ * tick fits comfortably in a double (9e14 for an hour, against the 9e15 it
+ * holds), so Number() on the string is exact. */
 function sk_ticks(time) { return Number(time.ticks); }
 
 function sk_timeFromTicks(ticks) {
@@ -213,8 +278,8 @@ function sk_timeFromTicks(ticks) {
     return t;
 }
 
-/* La primera pista de video libre bajo el cursor, para no machacar el montaje
- * que ya haya ahi. overwriteClip sobre V1 a ciegas destruiria trabajo. */
+/* The first free video track under the playhead, so the edit already there
+ * isn't crushed. A blind overwriteClip on V1 would destroy work. */
 function sk_freeVideoTrack(seq, atTicks) {
     for (var i = 0; i < seq.videoTracks.numTracks; i++) {
         var track = seq.videoTracks[i];
@@ -229,9 +294,8 @@ function sk_freeVideoTrack(seq, atTicks) {
     return null;
 }
 
-/* Lo que dura la imagen tal cual la importo Premiere (la preferencia de
- * duracion de imagen fija del usuario). Si no se puede leer, 5 s, que es lo
- * que trae Premiere de fabrica. */
+/* How long the image lasts as Premiere imported it (the user's still image
+ * duration preference). If it can't be read, 5 s, Premiere's factory default. */
 function sk_itemTicks(item) {
     var types = [4, 1, 2];
     for (var i = 0; i < types.length; i++) {
@@ -241,10 +305,10 @@ function sk_itemTicks(item) {
     return 5 * 254016000000;
 }
 
-/* La pista mas baja en la que la imagen ENTERA cabe sin tocar nada, mirando
- * de abajo arriba: queda justo por encima de lo que ya hay en ese tramo, no en
- * la cima de la timeline. Si en ninguna cabe, se anade una nueva arriba del
- * todo (solo QE sabe crear pistas). */
+/* The lowest track where the WHOLE image fits without touching anything,
+ * scanning bottom-up: it lands right above whatever is in that span, not at
+ * the top of the timeline. If it fits nowhere, a new track is added above
+ * everything (only QE can create tracks). */
 function sk_stackVideoTrack(seq, atTicks, durTicks) {
     var n = seq.videoTracks.numTracks;
     var end = atTicks + durTicks;
@@ -265,8 +329,8 @@ function sk_stackVideoTrack(seq, atTicks, durTicks) {
     return seq.videoTracks.numTracks > n ? seq.videoTracks[n] : null;
 }
 
-/* Tick en el que empieza el siguiente clip de la pista, 0 si no hay ninguno
- * (hueco abierto hasta el final de la secuencia). */
+/* Tick where the track's next clip starts, 0 if there is none (gap open until
+ * the end of the sequence). */
 function sk_nextClipStart(track, atTicks) {
     var next = 0;
     for (var i = 0; i < track.clips.numItems; i++) {
@@ -276,7 +340,7 @@ function sk_nextClipStart(track, atTicks) {
     return next;
 }
 
-/* El clip que ocupa ese tick: el que acabamos de insertar. */
+/* The clip occupying that tick: the one just inserted. */
 function sk_clipAt(track, atTicks) {
     for (var i = 0; i < track.clips.numItems; i++) {
         var c = track.clips[i];
@@ -286,17 +350,17 @@ function sk_clipAt(track, atTicks) {
 }
 
 function sk_outTicks(item, type) {
-    try { return sk_ticks(item.getOutPoint(type)); } catch (e) { /* getter sin argumento */ }
-    try { return sk_ticks(item.getOutPoint()); } catch (e) { /* no hay manera */ }
+    try { return sk_ticks(item.getOutPoint(type)); } catch (e) { /* getter without argument */ }
+    try { return sk_ticks(item.getOutPoint()); } catch (e) { /* no way */ }
     return -1;
 }
 
-/* La duracion de una imagen fija la pone la preferencia del usuario, no
- * nosotros. Para que no se pase del hueco hay que recortar el ProjectItem ANTES
- * de insertarlo: despues seria tarde, overwriteClip ya se habria comido la
- * cabeza del clip siguiente.
- * El mediaType de setOutPoint no vale lo mismo en todas las builds, asi que se
- * prueban los conocidos y se comprueba leyendo lo que quedo. */
+/* A still image's duration is set by the user's preference, not by us. To keep
+ * it inside the gap the ProjectItem must be trimmed BEFORE inserting: after
+ * would be too late, overwriteClip would already have eaten the head of the
+ * next clip.
+ * setOutPoint's mediaType doesn't mean the same on every build, so the known
+ * ones are tried and the result is verified by reading back what stuck. */
 function sk_trimItem(item, ticks, tolerance) {
     var types = [4, 1, 2];
     for (var i = 0; i < types.length; i++) {
@@ -311,7 +375,7 @@ function sk_trimItem(item, ticks, tolerance) {
     return false;
 }
 
-/* Importa la imagen y la coloca en el cursor de reproduccion. */
+/* Imports the image and places it at the playhead. */
 function skImportImage(path, top) {
     try {
         var seq = sk_activeSequence();
@@ -329,8 +393,8 @@ function skImportImage(path, top) {
         var at = sk_ticks(pos);
         var track, frame = Number(seq.timebase) || 0, gap = 0, next = 0;
         if (top === "1") {
-            // Apilar: la imagen entera, sin recortar, en la primera pista donde
-            // cabe sin pisar nada. Los huecos no cuentan.
+            // Stack: the whole image, untrimmed, on the first track where it
+            // fits without overlapping anything. Gaps don't matter.
             track = sk_stackVideoTrack(seq, at, sk_itemTicks(item));
             if (!track) { return "err\tNo free video track at the playhead. The image is in the Sidekick bin."; }
             track.overwriteClip(item, pos.seconds);
@@ -340,9 +404,9 @@ function skImportImage(path, top) {
                 return "err\tNo free video track at the playhead. The image is in the Sidekick bin.";
             }
 
-            // La imagen dura lo que dure el hueco: desde el cursor hasta el
-            // siguiente clip de la pista. Si no hay siguiente, el hueco no tiene
-            // final y se deja la duracion por defecto de Premiere.
+            // The image lasts as long as the gap: from the playhead to the
+            // track's next clip. With no next clip the gap has no end and
+            // Premiere's default duration is kept.
             next = sk_nextClipStart(track, at);
             gap = next ? next - at : 0;
             if (gap && !sk_trimItem(item, gap, frame)) {
@@ -352,12 +416,12 @@ function skImportImage(path, top) {
             track.overwriteClip(item, pos.seconds);
         }
 
-        // El recorte del ProjectItem se queda corto por un fotograma en algunas
-        // builds (in/out inclusivo) y dejaba una astilla al final del hueco. El
-        // hueco esta vacio, asi que estirar el clip hasta el borde no pisa nada.
+        // The ProjectItem trim falls one frame short on some builds (inclusive
+        // in/out) and left a sliver at the end of the gap. The gap is empty, so
+        // stretching the clip to the edge treads on nothing.
         var clip = gap ? sk_clipAt(track, at) : null;
         if (clip && sk_ticks(clip.end) !== next) {
-            try { clip.end = sk_timeFromTicks(next); } catch (e) { /* build sin setter */ }
+            try { clip.end = sk_timeFromTicks(next); } catch (e) { /* build without setter */ }
         }
         return "ok\t" + item.name + "\t" + (track.id + 1);
     } catch (e) {

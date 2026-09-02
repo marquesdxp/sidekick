@@ -1,89 +1,116 @@
-# Sidekick
+<h1 align="center">Sidekick · Copy &amp; Paste to Premiere Pro</h1>
 
-Panel CEP para Adobe Premiere Pro. Herramientas personales de postproducción,
-código abierto bajo licencia MIT.
+<p align="center">
+  A tiny panel for Adobe Premiere Pro: copy the current frame to your clipboard,<br>
+  paste any image from your clipboard straight onto the timeline.
+</p>
 
----
+<p align="center">
+  <a href="https://github.com/marquesdxp/sidekick/releases"><img alt="Release" src="https://img.shields.io/github/v/release/marquesdxp/sidekick?style=flat-square&color=FFCC00&labelColor=1c1c1c"></a>
+  <img alt="Premiere Pro 15+" src="https://img.shields.io/badge/Premiere%20Pro-15%2B-1c1c1c?style=flat-square&logo=adobepremierepro&logoColor=FFCC00">
+  <img alt="macOS & Windows" src="https://img.shields.io/badge/macOS%20%7C%20Windows-1c1c1c?style=flat-square">
+  <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-1c1c1c?style=flat-square"></a>
+</p>
 
-## ⚠️ Proyecto independiente
-
-**Sidekick no tiene ninguna relación con Postline.**
-
-No comparte código, ni estilos, ni scripts, ni recursos, ni historial de git, ni
-identificadores con Postline ni con ningún otro plugin. Es un repositorio
-distinto, con su propio `.git`, su propia licencia y su propio bundle ID
-(`com.andersonmarques.sidekick`).
-
-Regla del proyecto: **no se importa código de Postline aquí bajo ningún
-concepto.** Si algo hace falta, se escribe de cero. Postline es un plugin UXP;
-Sidekick es CEP. No tienen nada en común y así se queda.
+<p align="center">
+  <a href="https://www.buymeacoffee.com/marquesdxp"><img src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=&slug=marquesdxp&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" alt="Buy me a coffee" height="40"></a>
+</p>
 
 ---
 
-## Qué hace
+## What it does
 
-**Fotograma ↔ portapapeles del sistema.** *Copiar el fotograma actual* exporta el
-fotograma bajo el cursor y lo deja en el portapapeles como imagen: se pega en
-Photoshop, en Slack, en un correo o donde haga falta. Al revés, cualquier imagen
-que tengas copiada se guarda en una carpeta `Sidekick` junto al `.prproj`, se
-importa al bin `Sidekick` y se coloca en el cursor, en la primera pista de vídeo
-que esté libre ahí (nunca machaca lo que ya haya montado).
+Two buttons. That's the whole panel.
 
-El fichero pegado va junto al proyecto y **nunca a una carpeta temporal**:
-Premiere queda enlazado a él para siempre, y en el temporal el material acabaría
-offline.
+**Copy** grabs the frame under the playhead and puts it on the system clipboard
+as an image. Paste it into Photoshop, Slack, an email, wherever.
 
-El portapapeles se toca a través del sistema operativo (JXA sobre `NSPasteboard`
-en macOS, `powershell` en Windows, lanzados con `cep.process`), no con
-`navigator.clipboard`: el CEF que embarca Premiere no da permiso de lectura y
-`ClipboardItem` no siempre existe, que es por lo que Copiar y Pegar fallaban.
+**Paste** takes whatever image is on your clipboard, saves it in a `Sidekick`
+folder next to your `.prproj`, imports it into a `Sidekick` bin and drops it at
+the playhead. It never overwrites anything already on the timeline.
 
-**Tres idiomas.** El panel toma el idioma del sistema y usa
-`i18n/strings.js`: inglés, español y português-brasil, elegible en **≡ →
-Language** y guardado en `~/.sidekick.json`. Lo que no esté traducido sale en
-inglés. Para añadir un idioma, copia un bloque y traduce los valores.
+**Paste on top** (the arrow toggle, or **≡ → Paste on top**) changes where the
+image lands:
 
-El idioma por defecto sale de `navigator.language`, que en el CEF de Premiere es
-el idioma **de Premiere**, no el del sistema: por eso el menú manda sobre él.
+| Mode | Behaviour |
+|------|-----------|
+| **Off** (default) | Fills the gap under the playhead on the first free video track. The image is trimmed to fit the gap, so it never eats the next clip. |
+| **On** | Keeps the image at its full default duration and stacks it on the lowest track where it fits without touching anything. Creates a new track if none does. |
 
-## Instalación
+The toggle works like Caps Lock: it stays the way you leave it, across sessions.
 
-Requiere Premiere Pro 15 o superior, en macOS o Windows.
+**Paste folder** (**≡ → Paste folder**) is where pasted images are saved. By
+default a `Sidekick` folder next to the `.prproj`. Pick any other folder and
+it's remembered relative to the project when possible, so `../IMAGES` works
+the same on every project that shares your folder structure, and on every
+machine. A folder on another drive is kept absolute.
 
-**Usuarios:** descarga `Sidekick-x.y.z.zxp` de la página de releases e
-instálalo con [ZXP Installer](https://aescripts.com/learn/zxp-installer/)
-(gratis, macOS y Windows): arrastras el fichero y listo. Reinicia Premiere y
-ábrelo en **Ventana → Extensiones → Sidekick**.
+**Three languages.** English, Spanish and Brazilian Portuguese, picked from
+**≡ → Language** and remembered in `~/.sidekick.json`. Anything not translated
+falls back to English. Every confirmation is a movie quote; click it to reveal
+the film.
 
-**Sin ZXP:** descarga el repositorio y haz doble clic en **`install.command`**
-(macOS) o **`install.bat`** (Windows). Copia el panel a la carpeta de
-extensiones y activa el modo depuración de CEP, que es lo que permite a
-Premiere cargar una extensión sin firmar.
+## Install
 
-**Empaquetar el .zxp:** `./build.command`. Necesita `ZXPSignCmd` (de
-[CEP-Resources](https://github.com/Adobe-CEP/CEP-Resources), carpeta
-`ZXPSignCMD/`) en `tools/`; el certificado autofirmado se crea solo la primera
-vez y no va al repositorio.
+Requires Premiere Pro 15 or later, on macOS or Windows.
 
-Para desarrollar, `./install.command --link` enlaza en vez de copiar: editas el
-repositorio y basta con el botón ↻ del panel, sin reinstalar ni reiniciar
-Premiere. La consola queda en `http://localhost:8099` (`.debug`).
+**Users:** download `Sidekick-x.y.z.zxp` from the
+[releases page](https://github.com/marquesdxp/sidekick/releases) and install it
+with [ZXP Installer](https://aescripts.com/learn/zxp-installer/) (free, macOS and
+Windows): drag the file in and you're done. Restart Premiere and open it from
+**Window → Extensions → Sidekick**.
+
+**Without a ZXP:** clone the repository and double-click **`install.command`**
+(macOS) or **`install.bat`** (Windows). It copies the panel into the extensions
+folder and turns on CEP debug mode, which lets Premiere load an unsigned
+extension.
+
+## Development
 
 ```sh
-npm test    # comprobaciones del portapapeles y del i18n
+./install.command --link   # symlinks instead of copies: edit, then ≡ → Refresh
+npm test                   # clipboard, i18n, quotes and path checks
+./build.command            # signs dist/Sidekick-x.y.z.zxp
 ```
 
-## Límites conocidos
+Building the `.zxp` needs `ZXPSignCmd` (from Adobe's
+[CEP-Resources](https://github.com/Adobe-CEP/CEP-Resources), `ZXPSignCMD/`
+folder) in `tools/`. A self-signed certificate is created on the first run and
+never committed. The panel's console is at `http://localhost:8099`.
 
-- CEP está deprecado por Adobe. Sigue funcionando y es la única vía para hacer
-  llamadas de red y acceso a disco sin las restricciones de UXP.
-- Pegar necesita el proyecto guardado: sin `.prproj` en disco no hay carpeta
-  donde dejar la imagen.
-- Copiar el fotograma va por QE (`qe.project…exportFramePNG`), el DOM interno de
-  Premiere, porque las versiones nuevas ya no exponen `exportFrame*` al script.
-  Si algún día QE tampoco está, quedan `renderVideoFrameAtTime` y las cuatro
-  `exportFrame*` como respaldo, y el panel dice qué ofrece esa versión.
+## How it works
 
-## Licencia
+The clipboard is driven through the operating system, not `navigator.clipboard`:
+JXA over `NSPasteboard` on macOS, PowerShell on Windows, both launched with
+`cep.process`. The CEF embedded in Premiere denies clipboard reads and
+`ClipboardItem` isn't always there.
 
-MIT. Ver [LICENSE](LICENSE).
+Pasted files live next to the project and **never in a temp folder**: Premiere
+links to the file forever, and a temp file would eventually go offline.
+
+Frame export goes through QE (`qe.project…exportFramePNG`), Premiere's internal
+DOM, because newer versions no longer expose `exportFrame*` to scripts. If QE is
+ever gone too, `renderVideoFrameAtTime` and the four `exportFrame*` calls are
+tried as fallbacks, and the panel reports what that version offers.
+
+The default language comes from `navigator.language`, which inside Premiere's
+CEF is **Premiere's** language, not the system's. That's why the menu overrides
+it.
+
+## Known limits
+
+- CEP is deprecated by Adobe. It still works, and it's the only way to reach
+  the disk and the clipboard without UXP's restrictions.
+- Paste needs a saved project: without a `.prproj` on disk there's no folder to
+  put the image in (unless you set an absolute paste folder).
+
+## Found a bug? Have an idea?
+
+[Open an issue](https://github.com/marquesdxp/sidekick/issues). Say which
+Premiere version and OS you're on, and paste anything the panel's console
+shows (`http://localhost:8099` while Premiere is running). Feature requests are
+welcome too.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

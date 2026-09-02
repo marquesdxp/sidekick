@@ -1,16 +1,16 @@
 /*
- * Sidekick - 77 frases de cine con chispa para Copy & Paste de IMAGENES.
+ * Sidekick - 77 witty movie quotes for IMAGE Copy & Paste.
  *
- * Acciones : "copy" (30) | "paste" (30) | "error" (17)
- * Idiomas  : en | es (latino, con algunas de Espana marcadas con esVariant) | pt (Brasil)
- * Plataforma: los atajos se escriben con tokens y se resuelven al vuelo
- *             {COPY} {PASTE} {MOD}  ->  Ctrl+C / Cmd+C  (mayusculas: {COPY^} {PASTE^} {MOD^})
+ * Actions  : "copy" (30) | "paste" (30) | "error" (17)
+ * Languages: en | es (Latin American, a few Spain ones marked with esVariant) | pt (Brazil)
+ * Platform : shortcuts are written as tokens and resolved on the fly
+ *            {COPY} {PASTE} {MOD}  ->  Ctrl+C / Cmd+C  (uppercase: {COPY^} {PASTE^} {MOD^})
  *
- * Uso: getPhrase("copy", "es")            -> detecta la plataforma sola
- *      getPhrase("copy", "es", { platform: "mac", symbols: true })  -> ⌘C
+ * Usage: getPhrase("copy", "es")            -> detects the platform itself
+ *        getPhrase("copy", "es", { platform: "mac", symbols: true })  -> ⌘C
  */
 
-// ───────────────────────── Atajos por plataforma ─────────────────────────
+// ───────────────────────── Shortcuts per platform ─────────────────────────
 
 export const KEYMAPS = {
   win: { text: { MOD: "Ctrl", COPY: "Ctrl+C", PASTE: "Ctrl+V" },
@@ -19,15 +19,15 @@ export const KEYMAPS = {
          symbol: { MOD: "⌘", COPY: "⌘C", PASTE: "⌘V" } },
 };
 
-/** Detecta mac/win. En CEP no hay require("os"): el CEF de Premiere dice la
- * plataforma por navigator.platform ("MacIntel" / "Win32"). Por defecto, win. */
+/** Detects mac/win. CEP has no require("os"): Premiere's CEF reports the
+ * platform via navigator.platform ("MacIntel" / "Win32"). Defaults to win. */
 export function detectPlatform() {
   const nav = globalThis.navigator;
   const id = (nav && (nav.userAgentData?.platform || nav.platform || nav.userAgent)) || "";
   return /mac|darwin|iphone|ipad/i.test(id) ? "mac" : "win";
 }
 
-/** Sustituye {COPY}, {PASTE}, {MOD} y sus variantes en mayusculas {COPY^}. */
+/** Replaces {COPY}, {PASTE}, {MOD} and their uppercase variants {COPY^}. */
 export function applyKeys(text, platform, symbols) {
   const map = (KEYMAPS[platform] || KEYMAPS.win)[symbols ? "symbol" : "text"];
   return text.replace(/\{(MOD|COPY|PASTE)(\^?)\}/g, (_, key, upper) =>
@@ -35,10 +35,10 @@ export function applyKeys(text, platform, symbols) {
   );
 }
 
-// ───────────────────────────── Las 77 frases ─────────────────────────────
+// ───────────────────────────── The 77 quotes ─────────────────────────────
 
 export const QUOTES = [
-  // ══════════════ COPY — imagen copiada al clipboard (30) ══════════════
+  // ══════════════ COPY — image copied to the clipboard (30) ══════════════
   { a: "copy", film: "Terminator", en: "I'll be back… and so will your image. Copied!", es: "Volveré… y tu imagen también. ¡Copiada!", pt: "Eu voltarei… e a sua imagem também. Copiada!" },
   { a: "copy", film: "Titanic", en: "Draw me like one of your French frames. Copied!", es: "Dibújame como a una de tus francesas. ¡Imagen copiada!", pt: "Me desenhe como uma de suas francesas. Imagem copiada!" },
   { a: "copy", film: "El Señor de los Anillos (Gollum)", en: "My precious pixels… copied.", es: "Mis pixeles precioosos… copiados.", pt: "Meus pixels precioosos… copiados." },
@@ -70,7 +70,7 @@ export const QUOTES = [
   { a: "copy", film: "El Show de Truman", en: "In case I don't see you: copied, good afternoon and good night!", es: "Por si no te veo: ¡copiada, buenas tardes y buenas noches!", pt: "Caso eu não te veja: copiada, boa tarde e boa noite!" },
   { a: "copy", film: "Cinema Paradiso", en: "Every frame worth keeping. Copied.", es: "Cada frame que vale la pena guardar. Copiado.", pt: "Cada frame que vale a pena guardar. Copiado." },
 
-  // ══════════════ PASTE — imagen pegada desde el clipboard (30) ══════════════
+  // ══════════════ PASTE — image pasted from the clipboard (30) ══════════════
   { a: "paste", film: "Terminator 2", esVariant: "españa", en: "Hasta la vista, clipboard. Image pasted!", es: "Sayonara, clipboard. ¡Imagen pegada!", pt: "Hasta la vista, clipboard. Imagem colada!" },
   { a: "paste", film: "El Resplandor", en: "Heeere's your image!", es: "¡Aquí está tu imagen!", pt: "Olha a sua imagem aquiii!" },
   { a: "paste", film: "Forrest Gump", en: "Run, Forrest… it's already pasted.", es: "Corre, Forrest… ya está pegada.", pt: "Corre, Forrest… já está colada." },
@@ -102,7 +102,7 @@ export const QUOTES = [
   { a: "paste", film: "Los Cazafantasmas", en: "Who you gonna call? {PASTE^}!", es: "¿A quién vas a llamar? ¡{PASTE^}!", pt: "Para quem você vai ligar? {PASTE^}!" },
   { a: "paste", film: "Buscando a Nemo (Dory)", en: "Just keep pasting, just keep pasting…", es: "Sigue pegando, sigue pegando… ¡Imagen pegada!", pt: "Continue a colar, continue a colar… Imagem colada!" },
 
-  // ══════════════ ERROR — no hay imagen válida en el clipboard (17) ══════════════
+  // ══════════════ ERROR — no valid image in the clipboard (17) ══════════════
   { a: "error", film: "Apolo 13", en: "Houston, we have a problem: no image in the clipboard.", es: "Houston, tenemos un problema: no hay imagen en el clipboard.", pt: "Houston, temos um problema: não há imagem no clipboard." },
   { a: "error", film: "El Señor de los Anillos (Gandalf)", en: "YOU SHALL NOT {PASTE^}! No valid image in the clipboard.", es: "¡NO PEGARÁS! De nada sirve tu {PASTE}: no hay imagen válida.", pt: "VOCÊ NÃO VAI COLAR! De nada adianta o {PASTE}: não há imagem válida." },
   { a: "error", film: "Star Wars (Obi-Wan)", en: "This is not the image you're looking for.", es: "Esta no es la imagen que buscas.", pt: "Esta não é a imagem que você procura." },
@@ -122,15 +122,15 @@ export const QUOTES = [
   { a: "error", film: "Los Simpson (Homero)", en: "D'oh! You pressed {COPY} on nothing.", es: "¡D'oh! Le diste al {COPY} sin nada seleccionado.", pt: "D'oh! Você apertou {COPY} sem nada selecionado." },
 ];
 
-// ───────────────────────────── API pública ─────────────────────────────
+// ───────────────────────────── Public API ─────────────────────────────
 
 /**
- * Devuelve una frase aleatoria ya resuelta para la plataforma.
+ * Returns a random quote already resolved for the platform.
  * @param {"copy"|"paste"|"error"} action
  * @param {"en"|"es"|"pt"} lang
  * @param {{ platform?: "mac"|"win", symbols?: boolean }} [opts]
- *        platform: si se omite, se detecta sola.
- *        symbols : true -> ⌘C / ⌘V en Mac; false (por defecto) -> Cmd+C / Cmd+V.
+ *        platform: detected automatically when omitted.
+ *        symbols : true -> ⌘C / ⌘V on Mac; false (default) -> Cmd+C / Cmd+V.
  * @returns {{ text: string, film: string, platform: string }}
  */
 export function getPhrase(action, lang = "es", opts = {}) {

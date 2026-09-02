@@ -1,11 +1,11 @@
 #!/bin/sh
-# Sidekick - empaqueta el .zxp para usuarios finales. Doble clic o ./build.command
+# Sidekick - packages the .zxp for end users. Double-click or ./build.command
 #
-# Un .zxp es un zip firmado: lo instala cualquiera con ZXP Installer
-# (aescripts.com/learn/zxp-installer) sin tocar el modo depuracion. Firmar
-# exige ZXPSignCmd, que Adobe no deja redistribuir: bajalo de
-# github.com/Adobe-CEP/CEP-Resources (ZXPSignCMD/) y dejalo en tools/.
-# El certificado es autofirmado y se crea solo la primera vez (tools/sidekick.p12).
+# A .zxp is a signed zip: anyone installs it with ZXP Installer
+# (aescripts.com/learn/zxp-installer) without touching debug mode. Signing
+# needs ZXPSignCmd, which Adobe doesn't allow redistributing: get it from
+# github.com/Adobe-CEP/CEP-Resources (ZXPSignCMD/) and drop it in tools/.
+# The certificate is self-signed and created on the first run (tools/sidekick.p12).
 set -e
 cd "$(dirname "$0")"
 SIGN="${ZXPSIGNCMD:-tools/ZXPSignCmd}"
@@ -14,11 +14,11 @@ PASS="${ZXP_PASS:-sidekick}"
 VERSION=$(sed -n 's/.*ExtensionBundleVersion="\([^"]*\)".*/\1/p' CSXS/manifest.xml)
 OUT="dist/Sidekick-$VERSION.zxp"
 
-[ -x "$SIGN" ] || { echo "Falta $SIGN (o exporta ZXPSIGNCMD=/ruta/ZXPSignCmd)."; exit 1; }
+[ -x "$SIGN" ] || { echo "Missing $SIGN (or export ZXPSIGNCMD=/path/to/ZXPSignCmd)."; exit 1; }
 mkdir -p tools dist
 [ -f "$CERT" ] || "$SIGN" -selfSignedCert ES Madrid "Anderson Marques" Sidekick "$PASS" "$CERT"
 
-# Solo lo que carga Premiere: ni tests, ni instaladores, ni .debug.
+# Only what Premiere loads: no tests, no installers, no .debug.
 STAGE=$(mktemp -d)
 cp -R CSXS css fonts i18n host.jsx index.html "$STAGE/"
 mkdir "$STAGE/js"
@@ -28,4 +28,4 @@ rm -f "$OUT"
 rm -rf "$STAGE"
 
 echo ""
-echo "Listo: $OUT"
+echo "Done: $OUT"

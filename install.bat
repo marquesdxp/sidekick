@@ -1,7 +1,7 @@
 @echo off
-REM Sidekick - instalacion local en Windows. Doble clic sobre este fichero.
-REM Sin firma: se activa el modo depuracion de CEP, que es lo que permite a
-REM Premiere cargar un panel sin certificado. Es un ajuste tuyo, no del plugin.
+REM Sidekick - local install on Windows. Double-click this file.
+REM Unsigned: CEP debug mode is turned on, which is what lets Premiere load a
+REM panel without a certificate. It's a setting of yours, not the plugin's.
 setlocal
 set "DEST=%APPDATA%\Adobe\CEP\extensions\com.andersonmarques.sidekick"
 
@@ -18,8 +18,8 @@ copy /y "%~dp0host.jsx"   "%DEST%\" >nul
 copy /y "%~dp0index.html" "%DEST%\" >nul
 
 echo.
-echo Sidekick instalado en:
+echo Sidekick installed at:
 echo   %DEST%
 echo.
-echo Reinicia Premiere Pro y abrelo en Ventana ^> Extensiones ^> Sidekick.
+echo Restart Premiere Pro and open it from Window ^> Extensions ^> Sidekick.
 pause

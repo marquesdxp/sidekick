@@ -4,6 +4,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node js/clipboard.test.mjs && node js/i18n.test.mjs && node js/quotes.test.mjs"
+    "test": "node js/clipboard.test.mjs && node js/i18n.test.mjs && node js/quotes.test.mjs && node js/paths.test.mjs"
   }
 }

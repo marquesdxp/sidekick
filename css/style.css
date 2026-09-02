@@ -1,7 +1,7 @@
 /*
- * Sidekick - el panel entero es una capsula de cristal con dos botones.
- * Sin cabecera, sin pie: se funde con el panel de video que tenga encima.
- * Linea grafica Marques DXP: amarillo sobre carbon.
+ * Sidekick - the whole panel is a glass capsule with two buttons.
+ * No header, no footer: it blends into whatever video panel sits above it.
+ * Marques DXP visual line: yellow on charcoal.
  */
 @font-face {
   font-family: "Space Grotesk";
@@ -20,20 +20,20 @@
   --error-rgb: 255, 90, 78;
   --ok:      #5ddc8c;
   --ok-rgb:  93, 220, 140;
-  /* La altura de los botones: el unico numero a mano del panel. */
+  /* Button height: the only hand-tuned number in the panel. */
   --tool-h:  clamp(38px, 10vmin, 52px);
   --r:       14px;
-  /* Dos curvas: la suave para todo lo que se desplaza, la de muelle para lo que
-   * aparece. Y una duracion larga: la elegancia esta en no tener prisa. */
+  /* Two curves: the soft one for everything that slides, the springy one for
+   * what pops in. And a long duration: elegance is not being in a hurry. */
   --ease:    cubic-bezier(0.16, 1, 0.3, 1);
   --spring:  cubic-bezier(0.34, 1.4, 0.64, 1);
   --dur:     0.7s;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-[hidden] { display: none !important; }  /* el sprite de iconos, que no ocupe */
+[hidden] { display: none !important; }  /* the icon sprite takes no room */
 
-/* El panel es una ventana fija: nada de barras de desplazamiento. */
+/* The panel is a fixed window: no scrollbars. */
 html, body { height: 100%; overflow: hidden; }
 
 body {
@@ -46,12 +46,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* --- La luz de fondo -------------------------------------------------------
- * El cristal solo se ve si tiene algo detras que difuminar: dos manchas de
- * luz ambar que van a la deriva muy despacio. Es lo que da vida al vidrio. */
-/* Cabe entero en el panel por bajo que sea (vmin, centrado en vertical) y se
- * apaga solo con el degradado, sin filter: un blur se salia del borde y se
- * veia una raya recta donde el panel lo cortaba. */
+/* --- The background light --------------------------------------------------
+ * Glass only shows if there's something behind it to blur: two amber light
+ * blobs drifting very slowly. That's what brings the glass to life. */
+/* Fits inside the panel however short it is (vmin, vertically centred) and
+ * fades out with the gradient alone, no filter: a blur spilled past the edge
+ * and showed a straight line where the panel clipped it. */
 body::before, body::after {
   content: "";
   position: absolute;
@@ -77,7 +77,7 @@ body::after {
 @keyframes drift-a { to { transform: translateX(14vw); } }
 @keyframes drift-b { to { transform: translateX(-12vw); } }
 
-/* --- La capsula ------------------------------------------------------------ */
+/* --- The capsule ------------------------------------------------------------ */
 
 .stage {
   position: relative;
@@ -89,8 +89,8 @@ body::after {
   padding: 12px;
 }
 
-/* La capsula abraza a los botones y no se estira mas de lo que una frase
- * necesita: en un panel ancho queda centrada, no de lado a lado. */
+/* The capsule hugs the buttons and stretches no further than a sentence
+ * needs: on a wide panel it stays centred, not edge to edge. */
 .bar {
   position: relative;
   display: flex;
@@ -100,7 +100,7 @@ body::after {
   padding: 6px;
 }
 
-/* El cristal: borde de luz arriba, sombra abajo, y el fondo difuminado detras. */
+/* The glass: light edge on top, shadow below, blurred background behind. */
 .bar::before {
   content: "";
   position: absolute;
@@ -116,11 +116,11 @@ body::after {
   backdrop-filter: blur(18px) saturate(140%);
 }
 
-/* El anillo: un punto de luz que recorre el borde de la capsula sin parar.
- * Un conic-gradient desde el centro no sirve: en una capsula ancha, en cuanto
- * apunta de lado ilumina arriba y abajo a la vez. Esto es un recorrido de
- * verdad: main.js dibuja el contorno (--ring-path, en px, cambia con el
- * tamano) y la luz lo sigue con offset-path a velocidad constante. */
+/* The ring: a point of light running around the capsule edge non-stop.
+ * A conic-gradient from the centre doesn't work: on a wide capsule, as soon
+ * as it points sideways it lights top and bottom at once. This is a real
+ * path: main.js draws the outline (--ring-path, in px, changes with size) and
+ * the light follows it with offset-path at constant speed. */
 .ring {
   position: absolute;
   inset: 0;
@@ -149,15 +149,16 @@ body::after {
 }
 @keyframes travel { to { offset-distance: 100%; } }
 
-/* --- Los botones ------------------------------------------------------------ */
+/* --- The buttons ------------------------------------------------------------ */
 
-/* En reposo se reparten la capsula; con frase a la vista se encogen a su
- * contenido y la frase se queda con el resto. flex-grow es un numero: anima. */
+/* At rest they share the capsule; with a message showing they shrink to
+ * their content and the message takes the rest. flex-grow is a number: it
+ * animates. */
 .tool {
   position: relative;
   z-index: 0;
   flex: 1 1 auto;
-  min-width: 0;   /* que la etiqueta no saque el boton de la capsula */
+  min-width: 0;   /* the label must not push the button out of the capsule */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -194,7 +195,7 @@ body::after {
 .tool:active { transform: scale(0.96); transition-duration: 0.12s; }
 .tool:disabled { opacity: 0.45; cursor: default; }
 
-/* El destello: una franja de luz que cruza el boton una vez al confirmar. */
+/* The sheen: a strip of light crossing the button once on confirmation. */
 .tool::after {
   content: "";
   position: absolute;
@@ -214,8 +215,8 @@ body::after {
   100% { opacity: 0; transform: skewX(-18deg) translateX(420%); }
 }
 
- /* El primario es el ultimo que pulsaste y se queda asi hasta que pulses el
- * otro: amarillo vivo. Al pulsar, ademas, parpadea en verde un instante. */
+/* The primary is the last one you pressed and stays so until you press the
+ * other: bright yellow. On press it also flashes green for a moment. */
 .tool.is-primary {
   background: linear-gradient(160deg, rgba(var(--accent-rgb), 0.24), rgba(var(--accent-rgb), 0.10));
   border-color: rgba(var(--accent-rgb), 0.5);
@@ -223,8 +224,8 @@ body::after {
     inset 0 1px 0 rgba(255, 255, 255, 0.16),
     0 0 26px rgba(var(--accent-rgb), 0.16);
 }
-/* Mientras la frase esta a la vista, el boton entero en verde: es la senal de
- * que se hizo. Al irse la frase vuelve al amarillo del primario. */
+/* While the message is showing, the whole button goes green: the sign that
+ * it's done. When the message leaves it returns to the primary yellow. */
 .tool.is-done {
   color: var(--ok);
   background: linear-gradient(160deg, rgba(var(--ok-rgb), 0.30), rgba(var(--ok-rgb), 0.10));
@@ -234,8 +235,8 @@ body::after {
     0 0 34px rgba(var(--ok-rgb), 0.32);
 }
 
-/* Icono y etiqueta: los dos estados apilados en la misma celda y cruzados con
- * desenfoque, que es lo que hace que el cambio parezca fisico y no un corte. */
+/* Icon and label: both states stacked in the same cell and cross-faded with
+ * blur, which is what makes the change feel physical rather than a cut. */
 .ico, .lbl { display: grid; }
 .ico > *, .lbl > * { grid-area: 1 / 1; }
 
@@ -248,7 +249,7 @@ body::after {
 .lbl {
   font-size: clamp(14px, 2.4vmin, 18px);
   font-weight: 700;
-  /* Space Grotesk no tiene Black: el trazo extra engorda la Bold un punto. */
+  /* Space Grotesk has no Black: the extra stroke fattens the Bold a notch. */
   -webkit-text-stroke: 0.35px currentColor;
   letter-spacing: -0.04em;
   white-space: nowrap;
@@ -262,7 +263,7 @@ body::after {
 .tool.is-done .lbl-idle { transform: translateY(-0.5em); }
 .tool.is-done .ico-done, .tool.is-done .lbl-done { opacity: 1; transform: none; filter: none; }
 
-/* Fallo: el boton entero en rojo mientras dura el mensaje. */
+/* Failure: the whole button in red while the message lasts. */
 .tool.is-err {
   color: var(--error);
   background: linear-gradient(160deg, rgba(var(--error-rgb), 0.28), rgba(var(--error-rgb), 0.10));
@@ -272,11 +273,11 @@ body::after {
     0 0 34px rgba(var(--error-rgb), 0.28);
 }
 
-/* --- El conmutador de pista -------------------------------------------------- */
+/* --- The track toggle ------------------------------------------------------- */
 
-/* Mismo cristal que los botones pero en gris y sin crecer: es un interruptor,
- * no una accion. La flecha va dorada con trazo negro; el punto de abajo es la
- * luz de CapsLock: apagado no se ve, encendido brilla en ambar. */
+/* Same glass as the buttons but grey and non-growing: it's a switch, not an
+ * action. Off, the arrow is dim grey; on, it lights up amber and glows, and
+ * the button sinks a little. */
 .toggle {
   position: relative;
   flex: 0 0 auto;
@@ -304,7 +305,6 @@ body::after {
 .toggle:hover { background: linear-gradient(160deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04)); border-color: rgba(255, 255, 255, 0.18); }
 .toggle:hover svg { opacity: 0.7; }
 .toggle:active { transform: scale(0.94); transition-duration: 0.12s; }
-/* Apretado: la flecha se enciende en ambar y brilla; el boton se hunde un poco. */
 .toggle[aria-pressed="true"] {
   background: linear-gradient(160deg, rgba(var(--accent-rgb), 0.12), rgba(var(--accent-rgb), 0.05));
   border-color: rgba(var(--accent-rgb), 0.4);
@@ -317,10 +317,10 @@ body::after {
   filter: drop-shadow(0 0 5px rgba(var(--accent-rgb), 0.85));
 }
 
-/* --- El mensaje ------------------------------------------------------------- */
+/* --- The message ------------------------------------------------------------ */
 
-/* Una sola linea; si no cabe, se corta. Entra con desenfoque de movimiento:
- * borrosa y desplazada hacia el boton que la lanzo, y se asienta nitida. */
+/* One line; if it doesn't fit, it's clipped. Enters with motion blur: blurry
+ * and shifted towards the button that fired it, then settles sharp. */
 #status {
   flex: 0 1 0;
   min-width: 0;
@@ -330,8 +330,8 @@ body::after {
   justify-content: center;
   text-align: center;
   color: var(--ok);
-  /* Solo hay Space Grotesk en negrita; la frase va en la del sistema, media,
-   * mas apretada. Dos lineas si no cabe en una; mas, se corta. */
+  /* Only Space Grotesk Bold is bundled; the message uses the system font,
+   * medium, tighter. Two lines if one won't do; more than that is clipped. */
   font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
   font-weight: 500;
   font-size: clamp(12px, 2vmin, 15px);
@@ -351,29 +351,29 @@ body::after {
     transform 0.8s var(--ease),
     color 0.5s var(--ease);
 }
-/* Entra desde el boton que la lanzo, pero siempre acaba centrada y siempre
- * fuera de el: el desplazamiento solo vale mientras no esta encendida. */
+/* Enters from the button that fired it, but always ends centred and always
+ * outside it: the shift only applies while it isn't lit. */
 .bar.is-copy  #status:not(.is-on) { transform: translateX(-24px); }
 .bar.is-paste #status:not(.is-on) { transform: translateX(24px); }
 .bar.is-copy  #status { margin: 0 12px 0 4px; }
 .bar.is-paste #status { margin: 0 4px 0 12px; }
 
-/* El sitio lo da la barra; la nitidez, la propia frase: main.js quita y pone
- * is-on en cada mensaje, y asi la segunda frase entra igual que la primera. */
+/* The bar gives the room; the message gives the sharpness: main.js removes
+ * and re-adds is-on on every message, so the second one enters like the first. */
 .bar.is-msg #status { flex-grow: 1; padding: 0 14px; }
 #status.is-on { opacity: 1; filter: blur(0); transform: none; cursor: pointer; }
 #status.err { color: var(--error); }
-/* Mientras se descifra y cuando ya se ve la pelicula, en ambar. */
+/* While decoding and once the film is showing, amber. */
 #status.is-film { color: var(--accent); }
 
-/* Panel mas alto que ancho: los botones, solo icono y grandes, en los topes de
- * arriba y abajo; la frase se queda con todo el medio, girada un cuarto a la
- * izquierda para leerse de abajo arriba como en el lomo de un libro. */
+/* Panel taller than wide: the buttons, icon-only and big, pinned top and
+ * bottom; the message takes the whole middle, turned a quarter to the left to
+ * read bottom-up like a book spine. */
 @media (orientation: portrait) {
   .stage { align-items: stretch; }
   .bar { flex-direction: column; gap: 6px; width: 100%; height: 100%; }
-  /* Sin frase, los dos botones se reparten todo el alto; con frase se encogen
-   * a su minimo y ella se queda con el medio. flex-grow anima el cambio. */
+  /* Without a message both buttons share the full height; with one they
+   * shrink to their minimum and it takes the middle. flex-grow animates it. */
   .tool {
     flex: 1 1 auto;
     width: 100%;
@@ -387,8 +387,7 @@ body::after {
   .lbl { display: none; }
   .ico svg { width: clamp(26px, 6vmin, 40px); height: clamp(26px, 6vmin, 40px); }
 
-  /* Vertical-rl + media vuelta = lectura de abajo arriba; las lineas se
-   * apilan de izquierda a derecha. */
+  /* vertical-rl + half turn = bottom-up reading; lines stack left to right. */
   #status {
     flex: 0 1 0;
     width: 100%;
@@ -406,21 +405,21 @@ body::after {
   #status.is-on { transform: rotate(180deg); }
 }
 
-/* Panel muy estrecho: menos margen, que el sitio es para los botones. */
+/* Very narrow panel: less margin, the room is for the buttons. */
 @media (max-width: 160px) {
   .stage { padding: 8px; }
   .bar { padding: 4px; }
   .bar.is-msg #status { padding: 8px 4px; }
 }
 
-/* Premiere nunca dibuja un panel CEP por debajo de 132px: si lo estrechas
- * mas, recorta la derecha y la web no se entera (innerWidth sigue en 132).
- * En vertical, la capsula se pega a la izquierda y no pasa de 100px con
- * margenes, que es lo minimo a lo que se deja estrechar el dock. */
+/* Premiere never draws a CEP panel below 132px: narrow it further and it
+ * clips the right side without the page noticing (innerWidth stays at 132).
+ * In portrait the capsule hugs the left and stays under 100px with margins,
+ * the narrowest the dock can be dragged to. */
 @media (max-width: 160px) and (orientation: portrait) {
   .stage { justify-content: flex-start; }
   .bar { width: min(100%, 84px); }
-  /* Sin la luz de fondo: se sale por la derecha y se ve como un halo que
-   * continua en el panel de al lado. */
+  /* No background light: it spills out the right and shows as a halo
+   * continuing into the next panel. */
   body::before, body::after { display: none; }
 }

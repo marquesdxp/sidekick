@@ -1,7 +1,5 @@
 /*
- * Sidekick - logica del panel.
- *
- * Proyecto independiente. Sin relacion con Postline ni codigo compartido con el.
+ * Sidekick - panel logic.
  */
 import { evalScript, extensionPath, host, setFlyoutMenu } from './cep.js';
 import { LANGS, applyDom, lang, setLang, t } from './i18n.js';
@@ -12,13 +10,13 @@ const $ = (id) => document.getElementById(id);
 const statusEl = $('status');
 const bar = document.querySelector('.bar');
 
-/* Hacia que lado se abre la frase: la fija el boton que acabas de pulsar y la
- * usa el CSS para decidir a quien empuja. */
+/* Which side the message opens towards: set by the button you just pressed,
+ * used by the CSS to decide which button it pushes. */
 let side = 'copy';
 
-/* --- Preferencias -------------------------------------------------------- *
- * Un JSON en el home, no localStorage: el panel corre sobre file:// y Premiere
- * vacia su cache de CEP cuando le parece, llevandose lo que hubiera ahi. */
+/* --- Preferences ---------------------------------------------------------- *
+ * A JSON file in the home folder, not localStorage: the panel runs on file://
+ * and Premiere wipes its CEP cache whenever it likes, taking everything with it. */
 const CFG_FILE = `${window.cep.fs.getUserHomeDirectory?.().data || '/tmp'}/.sidekick.json`;
 
 function loadCfg() {
@@ -29,10 +27,10 @@ function loadCfg() {
 const cfg = loadCfg();
 const saveCfg = () => window.cep.fs.writeFile(CFG_FILE, JSON.stringify(cfg, null, 2), window.cep.encoding.UTF8);
 
-/* --- El mensaje ---------------------------------------------------------- */
+/* --- The message ---------------------------------------------------------- */
 
-/* La frase y su pelicula: se ve una u otra, nunca las dos. Pinchando se pasa de
- * una a la otra descifrando las letras. */
+/* The quote and its film: one or the other is shown, never both. Clicking
+ * switches between them by scrambling the letters. */
 let shown = null;   // { text, film }
 let showingFilm = false;
 let scrambler = null;
@@ -40,10 +38,10 @@ let scrambler = null;
 const CHARS = '01<>[]{}/\\*+=$#@%&ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const rnd = () => CHARS[Math.floor(Math.random() * CHARS.length)];
 
-/* Desciframiento: cada letra se fija en un momento distinto, de izquierda a
- * derecha, y hasta que le toca parpadea con un caracter al azar. Rapido: una
- * frase entera se lee en medio segundo. 16 ms por fotograma es el ritmo del
- * propio navegador; no hace falta rAF para 30 letras. */
+/* Decoding: each letter settles at a different moment, left to right, and
+ * flickers with a random character until its turn. Fast: a whole sentence
+ * reads in half a second. 16 ms per frame is the browser's own rhythm; no rAF
+ * needed for 30 letters. */
 function scrambleTo(text, cls) {
   clearInterval(scrambler);
   const settle = Array.from(text, (_, i) => i * 0.3 + Math.random() * 3);
@@ -64,24 +62,24 @@ function scrambleTo(text, cls) {
   statusEl.className = `is-on ${cls}`;
 }
 
-/* La frase se va sola a los 15 s: es un acuse de recibo, no un cartel, y el
- * panel tiene que volver a estar limpio sin que hagas nada. Se cuentan desde lo
- * ultimo que hiciste, sea la accion o descubrir la pelicula. Con ella se va el
- * COPIED del boton; el amarillo vivo del primario se queda. */
+/* The message leaves on its own after 15 s: it's a receipt, not a sign, and
+ * the panel has to be clean again without you doing anything. Counted from the
+ * last thing you did, be it the action or revealing the film. The button's
+ * COPIED goes with it; the bright yellow of the primary stays. */
 let hideTimer = null;
 
 function scheduleHide() {
   clearTimeout(hideTimer);
   hideTimer = setTimeout(() => {
-    statusEl.className = '';   // se desvanece con la transicion de #status
-    bar.className = 'bar';     // y los botones vuelven a repartirse el sitio
+    statusEl.className = '';   // fades out with the #status transition
+    bar.className = 'bar';     // and the buttons share the space again
     for (const b of tools) { b.classList.remove('is-done', 'is-err'); }
     shown = null;
   }, 15_000);
 }
 
-/* Un reflow forzado entre quitar y poner la clase: sin el, el navegador une los
- * dos cambios en un solo estilo y la entrada no se anima. */
+/* A forced reflow between removing and adding the class: without it the
+ * browser merges both changes into one style and the entrance doesn't animate. */
 function say(text, cls = '') {
   clearInterval(scrambler);
   scrambler = null;
@@ -94,7 +92,7 @@ function say(text, cls = '') {
   scheduleHide();
 }
 
-/** Frase de cine; la pelicula se descubre pinchando. */
+/** Movie quote; the film is revealed by clicking. */
 function quote(action, cls = '') {
   shown = { ...getPhrase(action, lang()), cls };
   showingFilm = false;
@@ -109,11 +107,11 @@ statusEl.addEventListener('click', () => {
   scheduleHide();
 });
 
-/* --- Botones -------------------------------------------------------------- */
+/* --- Buttons -------------------------------------------------------------- */
 
-/* El boton pulsado parpadea en verde con COPIED / PASTED mientras dura la frase
- * y pasa a ser el primario; el otro vuelve a apagado. Quitar y volver a poner
- * is-done con un reflow en medio relanza el parpadeo si repites el mismo. */
+/* The pressed button flashes green with COPIED / PASTED while the message
+ * lasts and becomes the primary; the other one goes back to dim. Removing and
+ * re-adding is-done with a reflow in between replays the flash on a repeat. */
 const tools = [$('copyFrame'), $('pasteImg')];
 
 function mark(btn, cls) {
@@ -124,32 +122,32 @@ function mark(btn, cls) {
 
 const flash = (btn) => mark(btn, 'is-done');
 
-/* Fotograma bajo el cursor -> portapapeles del sistema. */
+/* Frame under the playhead -> system clipboard. */
 async function copyFrame() {
   side = 'copy';
   try {
-    // Premiere 15-24 escribe el fotograma a disco; Premiere 25 lo devuelve en
-    // base64 y es el panel quien lo guarda. host.jsx dice cual de las dos.
+    // Premiere 15-24 writes the frame to disk; Premiere 25 returns it as
+    // base64 and the panel saves it. host.jsx says which of the two.
     const [kind, raw, data] = await host('skExportFrame');
     if (kind === 'b64') { writeFileBase64(raw, data); }
     const path = copyFileToClipboard(raw) || raw;
-    window.cep.fs.deleteFile(raw); // el temporal ya vive en el portapapeles
+    window.cep.fs.deleteFile(raw); // the temp file now lives in the clipboard
     if (path !== raw) { window.cep.fs.deleteFile(path); }
     flash($('copyFrame'));
     quote('copy');
   } catch (err) { fail($('copyFrame'), err); }
 }
 
-/* Imagen del portapapeles -> secuencia activa. */
+/* Clipboard image -> active sequence. */
 async function pasteImage() {
   side = 'paste';
   try {
-    // La carpeta la decide host.jsx: junto al .prproj, nunca en el temporal del
-    // sistema, porque Premiere queda enlazado a este fichero para siempre.
-    const [dir] = await host('skPasteDir');
+    // host.jsx picks the folder: next to the .prproj, never the system temp,
+    // because Premiere stays linked to this file forever.
+    const [dir] = await host('skPasteDir', cfg.dir || '');
     const path = `${dir}/${pastedFilename('image/png')}`;
-    // Portapapeles sin imagen es lo unico que se cuenta con una frase; cualquier
-    // otro fallo se dice tal cual, que es lo que sirve para arreglarlo.
+    // An empty clipboard is the only thing told with a quote; any other
+    // failure is said as it is, which is what helps fixing it.
     if (!clipboardToFile(path)) { mark($('pasteImg'), 'is-err'); quote('error', 'err'); return; }
     await host('skImportImage', path, cfg.top ? 1 : 0);
     flash($('pasteImg'));
@@ -157,8 +155,8 @@ async function pasteImage() {
   } catch (err) { fail($('pasteImg'), err); }
 }
 
-/* Fallo: el boton en rojo y el mensaje traducido, tal cual lo cuenta host.jsx.
- * Los errores que no vienen de ahi (los de ExtendScript) salen como llegan. */
+/* Failure: the button turns red and the message is translated, as host.jsx
+ * reports it. */
 function fail(btn, err) {
   shown = null;
   mark(btn, 'is-err');
@@ -168,25 +166,33 @@ function fail(btn, err) {
 $('copyFrame').addEventListener('click', copyFrame);
 $('pasteImg').addEventListener('click', pasteImage);
 
-/* El conmutador de pista: se queda como lo dejes, como el CapsLock. */
+/* The track toggle: stays the way you leave it, like Caps Lock. */
 const top = $('topTrack');
 const paintTop = () => top.setAttribute('aria-pressed', String(!!cfg.top));
-// El menu se repinta para mover su marca: boton y menu son el mismo estado.
+// The menu is redrawn to move its check mark: button and menu are one state.
 function toggleTop() { cfg.top = !cfg.top; saveCfg(); paintTop(); menu(); }
-// blur(): el boton se quedaba con el foco y Espacio/Intro lo volvian a pulsar.
+// blur(): the button kept keyboard focus and Space/Enter toggled it again.
 top.addEventListener('click', () => { toggleTop(); top.blur(); });
 paintTop();
 
-/* --- Menu del panel ------------------------------------------------------- */
+/* --- Panel menu ----------------------------------------------------------- */
 
 const LANG_LABELS = { en: 'EN', es: 'ES', pt: 'PT-BR' };
 
-/* La firma, el idioma y el recargar viven aqui: en la barra solo caben los dos
- * botones que se usan. El menu se repinta al cambiar de idioma para mover la
- * marca de seleccion. */
+/* Signature, language and refresh live here: the bar only has room for the
+ * two buttons that get used. The menu is redrawn on language change to move
+ * the check mark. */
 function menu() {
   setFlyoutMenu([
     { id: 'top', label: t('Paste on top'), checked: !!cfg.top },
+    {
+      label: t('Paste folder'),
+      children: [
+        { id: 'dir-default', label: t('Sidekick, next to the project'), checked: !cfg.dir },
+        ...(cfg.dir ? [{ id: 'dir-current', label: cfg.dir, checked: true }] : []),
+        { id: 'dir-pick', label: t('Choose…') },
+      ],
+    },
     { id: '-' },
     {
       label: t('Language'),
@@ -198,8 +204,23 @@ function menu() {
   ], onMenu);
 }
 
+/* The folder is picked with Premiere's native dialog and stored relative to
+ * the project when possible ("../IMAGES"), so it follows the same structure
+ * on every project and every machine. */
+async function pickDir() {
+  try {
+    const [dir] = await host('skPickDir');
+    if (!dir) { return; }
+    cfg.dir = dir;
+    saveCfg();
+    menu();
+  } catch (err) { fail($('pasteImg'), err); }
+}
+
 function onMenu(id) {
   if (id === 'top') { toggleTop(); return; }
+  if (id === 'dir-default') { delete cfg.dir; saveCfg(); menu(); return; }
+  if (id === 'dir-pick') { pickDir(); return; }
   if (id === 'refresh') { location.reload(); return; }
   if (id === 'ig') { window.cep.util.openURLInDefaultBrowser('https://www.instagram.com/marquesdxp/'); return; }
   if (id?.startsWith('lang-')) {
@@ -207,18 +228,18 @@ function onMenu(id) {
     saveCfg();
     applyDom();
     menu();
-    // La frase a la vista se queda en el idioma en que salio: la siguiente ya
-    // sale en el nuevo, y reescribirla ahora seria mentir sobre lo que hiciste.
+    // The message on screen keeps the language it came out in: the next one
+    // is in the new language, and rewriting it now would lie about what you did.
   }
 }
 
-/* --- El anillo ------------------------------------------------------------ */
+/* --- The ring ------------------------------------------------------------- */
 
-/* El contorno de la capsula en px, para que la luz del borde lo recorra
- * (offset-path no admite porcentajes de caja). Empieza abajo, en el centro, y
- * gira en el sentido del reloj. Se redibuja cuando el panel cambia de tamano. */
+/* The capsule outline in px, so the border light can travel along it
+ * (offset-path doesn't take box percentages). Starts at the bottom centre and
+ * runs clockwise. Redrawn whenever the panel is resized. */
 const ring = document.querySelector('.ring');
-const RING_R = 20;   // el radio del CSS: calc(var(--r) + 6px)
+const RING_R = 20;   // the CSS radius: calc(var(--r) + 6px)
 
 function drawRing() {
   const w = ring.offsetWidth, h = ring.offsetHeight, r = Math.min(RING_R, w / 2, h / 2);
@@ -229,11 +250,11 @@ function drawRing() {
 
 new ResizeObserver(drawRing).observe(ring);
 
-/* --- Arranque ------------------------------------------------------------- */
+/* --- Startup -------------------------------------------------------------- */
 
-/* Premiere evalua host.jsx una sola vez, al cargar la extension: recargando el
- * panel se seguia ejecutando el ExtendScript viejo. Cargarlo aqui en cada
- * arranque hace que recargar el panel baste, sin reiniciar Premiere. */
+/* Premiere evaluates host.jsx only once, when the extension loads: reloading
+ * the panel kept running the old ExtendScript. Loading it here on every start
+ * means reloading the panel is enough, no Premiere restart. */
 const reloadHost = () => evalScript(`$.evalFile(${JSON.stringify(`${extensionPath()}/host.jsx`)})`);
 
 setLang(cfg.lang);

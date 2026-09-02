@@ -1,36 +1,35 @@
-/* Comprobacion de la conversion de bytes y del nombre de fichero:
- * node js/clipboard.test.mjs
- * Un fallo aqui corrompe la imagen en silencio, que es lo peor que puede pasar. */
+/* Checks for the byte conversion and the file name: node js/clipboard.test.mjs
+ * A failure here corrupts the image silently, which is the worst that can happen. */
 import assert from 'node:assert/strict';
 import { PS_COPY, PS_PASTE, base64ToBlob, blobToBase64, pastedFilename } from './clipboard.js';
 
-// Cabecera PNG real: bytes altos y un 0x00, justo lo que rompe una conversion
-// hecha con cadenas en vez de con bytes.
+// Real PNG header: high bytes and a 0x00, exactly what breaks a conversion
+// done with strings instead of bytes.
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0xff, 0x7f, 0x80]);
 const b64 = Buffer.from(PNG).toString('base64');
 
 const blob = base64ToBlob(b64, 'image/png');
 assert.equal(blob.type, 'image/png');
-assert.deepEqual(new Uint8Array(await blob.arrayBuffer()), PNG, 'base64 -> bytes debe ser exacto');
-assert.equal(await blobToBase64(blob), b64, 'ida y vuelta sin perdida');
+assert.deepEqual(new Uint8Array(await blob.arrayBuffer()), PNG, 'base64 -> bytes must be exact');
+assert.equal(await blobToBase64(blob), b64, 'round trip without loss');
 
-// Mas de un trozo de 0x8000: verifica el troceado del apply.
+// More than one 0x8000 chunk: verifies the apply chunking.
 const big = new Uint8Array(200_000).map((_, i) => i % 256);
 const bigB64 = Buffer.from(big).toString('base64');
-assert.equal(await blobToBase64(new Blob([big])), bigB64, 'las imagenes grandes se trocean bien');
+assert.equal(await blobToBase64(new Blob([big])), bigB64, 'large images chunk correctly');
 assert.deepEqual(new Uint8Array(await base64ToBlob(bigB64).arrayBuffer()), big);
 
 const at = new Date('2026-09-01T18:07:03Z');
 assert.equal(pastedFilename('image/png', at), 'Sidekick_20260901180703.png');
 assert.equal(pastedFilename('image/jpeg', at), 'Sidekick_20260901180703.jpg');
-assert.equal(pastedFilename('image/heic', at), 'Sidekick_20260901180703.png', 'tipo desconocido cae en .png');
-assert.ok(!/[\/\\:*?"<>|]/.test(pastedFilename('image/png', at)), 'nombre valido en disco');
+assert.equal(pastedFilename('image/heic', at), 'Sidekick_20260901180703.png', 'unknown type falls back to .png');
+assert.ok(!/[\/\\:*?"<>|]/.test(pastedFilename('image/png', at)), 'valid on-disk name');
 
-console.log('clipboard: todas las comprobaciones pasan');
+console.log('clipboard: all checks pass');
 
-// Windows: el panel lee 'ok' / 'no-image' de la salida; un script mudo se lee
-// como "no he podido acceder al portapapeles". Y la comilla se escapa a la
-// PowerShell, doblandola, o una ruta con apostrofe rompe el script.
+// Windows: the panel reads 'ok' / 'no-image' from the output; a silent script
+// reads as "could not reach the clipboard". And quotes are escaped the
+// PowerShell way, by doubling, or a path with an apostrophe breaks the script.
 assert.match(PS_COPY("C:\\a'b.png"), /'C:\\a''b.png'/);
 assert.match(PS_COPY('x.png'), /\n\$out='ok'$/);
 assert.match(PS_PASTE('x.png'), /'no-image '/);

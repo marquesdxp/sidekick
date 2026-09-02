@@ -2,36 +2,36 @@
 <title>Sidekick</title>
 <link rel="stylesheet" href="css/style.css">
 
-<!-- Iconos en linea: tres trazos SVG pesan menos que cualquier libreria de
-     iconos, y asi heredan el color del boton sin cargar nada. -->
+<!-- Inline icons: three SVG strokes weigh less than any icon library, and
+     they inherit the button colour without loading anything. -->
 <svg hidden xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <!-- Dos cuadrados redondeados solapados: el "copy" limpio de la referencia. -->
+    <!-- Two overlapping rounded squares: the clean "copy" from the reference. -->
     <g id="i-copy" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
       <rect x="7.5" y="7.5" width="10" height="10" rx="2.6"></rect>
       <path d="M12.5 5.5v-.7A2.3 2.3 0 0 0 10.2 2.5H4.8A2.3 2.3 0 0 0 2.5 4.8v5.4a2.3 2.3 0 0 0 2.3 2.3h.7"></path>
     </g>
-    <!-- Portapapeles con pinza, mismo peso de trazo que el copy. -->
+    <!-- Clipboard with clip, same stroke weight as the copy. -->
     <g id="i-paste" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
       <path d="M7 4.5H5.8A2.3 2.3 0 0 0 3.5 6.8v8.4a2.3 2.3 0 0 0 2.3 2.3h8.4a2.3 2.3 0 0 0 2.3-2.3V6.8a2.3 2.3 0 0 0-2.3-2.3H13"></path>
       <rect x="7" y="2.5" width="6" height="3.6" rx="1.4"></rect>
       <path d="M7 10.5h6M7 13.5h4"></path>
     </g>
-    <!-- Acuse de recibo: circulo con check, como en la referencia. -->
+    <!-- Receipt: circle with a check, as in the reference. -->
     <g id="i-check" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
       <circle cx="10" cy="10" r="7.5"></circle>
       <path d="M6.8 10.2l2.2 2.2 4.4-4.6"></path>
     </g>
-    <!-- Flecha arriba del conmutador de pista: relleno dorado, trazo negro. -->
+    <!-- Up arrow for the track toggle: chunky, rounded joins. -->
     <g id="i-up" fill="currentColor" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round">
       <path d="M10 3.2 17.4 11.4 H13.2 V17 H6.8 V11.4 H2.6 Z"></path>
     </g>
   </defs>
 </svg>
 
-<!-- La frase va ENTRE los dos botones: al copiar sale a la derecha del Copiar
-     y empuja el Pegar; al pegar sale a la izquierda del Pegar y empuja el
-     Copiar. Nada se mueve por JS: manda flex-grow. -->
+<!-- The message sits BETWEEN the two buttons: on copy it appears right of
+     Copy and pushes Paste; on paste it appears left of Paste and pushes Copy.
+     Nothing moves via JS: flex-grow rules. -->
 <main class="stage">
 <div class="bar">
   <span class="ring"></span>
@@ -56,8 +56,8 @@
       <span class="lbl-done" data-t="Pasted">Pasted</span>
     </span>
   </button>
-  <!-- Conmutador tipo CapsLock: encendido, Pegar va a la pista libre mas alta
-       (o crea una); apagado, al hueco bajo el cursor. -->
+  <!-- Caps Lock style toggle: on, Paste stacks the image on the lowest track
+       where it fits (or creates one); off, it fills the gap under the playhead. -->
   <button id="topTrack" class="toggle" aria-pressed="false" data-t-title="Paste on the top track" title="Paste on the top track">
     <svg viewBox="0 0 20 20"><use href="#i-up"></use></svg>
   </button>

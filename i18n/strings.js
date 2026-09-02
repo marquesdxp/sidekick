@@ -1,13 +1,12 @@
 /*
- * Sidekick - diccionario unico, tres idiomas.
+ * Sidekick - single dictionary, three languages.
  *
- * Es un modulo, no un .json ni un .dic: leer un fichero con cep.fs dependia de
- * la ruta de la extension y de las constantes de codificacion, y fallaba en
- * silencio dejando el panel entero en ingles. Un import no puede fallar a
- * medias.
+ * A module, not a .json or a .dic: reading a file through cep.fs depended on
+ * the extension path and the encoding constants, and failed silently leaving
+ * the whole panel in English. An import can't half-fail.
  *
- * La clave ES el texto en ingles, asi que anadir un idioma es copiar un bloque
- * y traducir los valores; lo que no este traducido sale en ingles.
+ * The key IS the English text, so adding a language is copying a block and
+ * translating the values; anything not translated shows up in English.
  */
 export const STRINGS = {
   en: {},
@@ -18,6 +17,10 @@ export const STRINGS = {
     Pasted: 'Pegado',
     'Paste on the top track': 'Pegar en la pista más alta',
     'Paste on top': 'Pegar encima',
+    'Paste folder': 'Carpeta de pegado',
+    'Sidekick, next to the project': 'Sidekick, junto al proyecto',
+    'Choose…': 'Elegir…',
+    'Could not create the paste folder: {0}': 'No he podido crear la carpeta de pegado: {0}',
     Language: 'Idioma',
     Refresh: 'Refrescar',
     'No project is open.': 'No hay ningún proyecto abierto.',
@@ -46,6 +49,10 @@ export const STRINGS = {
     Pasted: 'Colado',
     'Paste on the top track': 'Colar na trilha mais alta',
     'Paste on top': 'Colar por cima',
+    'Paste folder': 'Pasta de colagem',
+    'Sidekick, next to the project': 'Sidekick, ao lado do projeto',
+    'Choose…': 'Escolher…',
+    'Could not create the paste folder: {0}': 'Não consegui criar a pasta de colagem: {0}',
     Language: 'Idioma',
     Refresh: 'Atualizar',
     'No project is open.': 'Nenhum projeto aberto.',
