@@ -1,6 +1,7 @@
 // Sidekick perf probe over the CEP remote-debugging port (no code changes in the panel).
 // usage: node perf.mjs [copy|paste|idle] [port]
 import { writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const action = process.argv[2] || 'copy';
 const port = process.argv[3] || 8099;
@@ -121,7 +122,7 @@ if (action === 'idle') {
   const seen = await evaluate('window.__busySeen');
   console.log(`FIRST FRAME WITH THE BUSY PULSE ON SCREEN: ${seen ? (seen - t0).toFixed(0) + ' ms after click' : 'never'}`);
   summarize(`${action} click, 5s window`, res);
-  const out = new URL('./trace-' + action + '.json', import.meta.url).pathname; // gitignored
+  const out = fileURLToPath(new URL('./trace-' + action + '.json', import.meta.url)); // gitignored
   writeFileSync(out, JSON.stringify({ traceEvents: res.events }));
   console.log('trace saved:', out, '(open in chrome://tracing or DevTools Performance > Load)');
 }

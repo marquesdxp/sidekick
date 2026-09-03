@@ -144,9 +144,16 @@ export const PS_COPY = (path) => [
 
 export const PS_PASTE = (path) => [
   'Add-Type -AssemblyName System.Windows.Forms,System.Drawing',
-  '$i=[Windows.Forms.Clipboard]::GetImage()',
-  `if($i -eq $null){$out='no-image '+(([Windows.Forms.Clipboard]::GetDataObject().GetFormats()) -join ', ')}`,
-  `else{$i.Save(${psPath(path)},[System.Drawing.Imaging.ImageFormat]::Png);$out='ok'}`,
+  '$d=[Windows.Forms.Clipboard]::GetDataObject()',
+  // Browsers and most apps that copy a PNG also leave the original bytes
+  // under "PNG". Written as they are: alpha intact (GetImage flattens it to
+  // 32bppRgb) and nothing to encode, which was 400 ms for a 4K frame.
+  '$s=$null; foreach($f in "PNG","image/png"){ if($s -eq $null -and $d.GetDataPresent($f)){ $s=$d.GetData($f) } }',
+  `if($s -is [IO.Stream]){ $fs=[IO.File]::Create(${psPath(path)}); $s.Position=0; $s.CopyTo($fs); $fs.Close(); $out='ok' }`,
+  `elseif($s -is [byte[]]){ [IO.File]::WriteAllBytes(${psPath(path)},$s); $out='ok' }`,
+  'else{ $i=[Windows.Forms.Clipboard]::GetImage()',
+  `if($i -eq $null){$out='no-image '+($d.GetFormats() -join ', ')}`,
+  `else{$i.Save(${psPath(path)},[System.Drawing.Imaging.ImageFormat]::Png);$out='ok'} }`,
 ].join('\n');
 
 /** Puts the image at `path` on the clipboard. Returns the file used. */

@@ -91,3 +91,62 @@ sets it and copies `.debug`.
 - Pre-warming PowerShell on Windows to hide the 0.6-1.5 s startup.
 - A TIFF/JPEG choice for the pasted file (PNG kept on purpose).
 - Committing to `main`: the branch waits for the Windows test.
+
+## Windows test (2026-09-03, RTX 3080, Premiere 26.3.2, same 4K vertical sequence)
+
+Session: https://claude.ai/code/session_01FmLWxr9AX38NQcL2MgdrQs
+
+First thing found: the 1.0.0 `.zxp` copy in `Program Files (x86)\Common Files\
+Adobe\CEP\extensions\Sidekick` shares the extension ID and Premiere loaded it
+instead of the `install.bat` copy in `%APPDATA%`. Moved to the Desktop as
+`Sidekick-zxp-backup`. With two copies of the same ID, Program Files wins.
+
+Both risks from the list above passed: TIFF through GDI+ copies fine, and
+`isRunning` polling works (0.03 ms per call, exit seen within 25 ms).
+
+| Finding | Number |
+|---|---|
+| First visible change after Paste | 0 ms; pulse on screen at 12-60 ms |
+| Dropped frames during Paste, 5 s window | 0 (30 fps cap here too) |
+| Paste, warm, 4K frame from Sidekick Copy | 1260 ms |
+| Paste, cold (PowerShell not run for a while) | 4800 ms, all of it in the PowerShell process |
+| PowerShell startup + `Add-Type` | ~300 ms |
+| `Clipboard.GetImage` | 30 ms |
+| PNG encode of the 4K frame, GDI+ or WIC | 400-500 ms (zlib, encoder-independent) |
+| TIFF uncompressed / JPEG 95 / BMP encode | 45 / 25 / 28 ms |
+| `app.project.importFiles` inside ExtendScript, any format | 50-70 ms |
+| `evalScript skImportImage` round trip | 340-400 ms (Premiere refreshing, not ours) |
+| Writing 15 MB to the project folder | 5 ms (NVMe, Dropbox running, no effect) |
+
+### Fixed here
+
+`PS_PASTE` in `clipboard.js`: a transparent PNG copied from Chrome pasted with
+the alpha flattened (WinForms `GetImage` returns 32bppRgb). The clipboard also
+carries the original file bytes under the "PNG" format (that is what Copy
+Pasta reads). Those bytes are now written as they are: alpha intact, no
+encode, Paste 860 ms for a browser image. `GetImage` stays as the fallback.
+Verified: pasted file 32bppArgb with transparent pixels.
+
+Not verified on Mac (one licence, Premiere was open on Windows). `JXA_PASTE`
+goes through `NSImage`, which keeps alpha, so it should already work there.
+
+### Scripts added
+
+```
+node perf/probe.mjs [empty|full]   # PowerShell launched from the panel: create, script start/end, poll cost
+node perf/import.mjs file...       # importFiles timing per format (imports into the Sidekick bin)
+node perf/reload.mjs               # Page.reload of the panel after install.bat, no need to reopen it
+```
+
+`perf.mjs` trace path fixed for Windows (`fileURLToPath`).
+
+### Still not done
+
+- Pre-warming PowerShell: worth ~300 ms warm and the whole 4-5 s cold hit.
+  Plan: a resident `.ps1` with `Add-Type` done, polling for a job file, exits
+  after idle; the panel starts it on open and restarts it if not running.
+- PNG vs TIFF for frames copied from Premiere: TIFF saves ~350 ms, 32 MB per
+  file. User's call.
+- `PS_COPY` puts only a bitmap on the clipboard: a Sidekick frame pasted into
+  a browser or Photoshop has no "PNG" format. Frames have no alpha, so it
+  only matters for fidelity, not correctness.
