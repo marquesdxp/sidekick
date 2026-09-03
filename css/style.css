@@ -211,11 +211,12 @@ body::after {
 }
 .tool.is-done::after { animation: sheen 0.7s var(--ease) 0.05s 1; }
 
-/* Pressed and waiting: the whole button breathes until the result comes in.
- * Opacity only: it runs on the compositor, so it keeps moving even while the
- * panel's thread is busy. */
-.tool.is-busy { animation: busy 0.5s ease-in-out infinite alternate; }
-@keyframes busy { to { opacity: 0.4; } }
+/* Pressed and waiting: the button drops to dim on the very first frame (a
+ * step, so the click is seen at once) and then breathes until the result
+ * comes in. Opacity only: it runs on the compositor, so it keeps moving even
+ * while the panel's thread is busy. */
+.tool.is-busy { animation: busy 0.45s ease-in-out infinite alternate; }
+@keyframes busy { from { opacity: 0.35; } to { opacity: 0.9; } }
 @keyframes sheen {
   0%   { opacity: 0; transform: skewX(-18deg) translateX(0); }
   15%  { opacity: 1; }

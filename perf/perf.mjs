@@ -64,7 +64,7 @@ await evaluate(`(() => {
     .observe(document.querySelector('.bar'), { attributes: true, attributeFilter: ['class'], subtree: true });
   // rAF cadence: gaps > 34ms are dropped frames / main-thread stalls
   window.__frames = []; let last = now();
-  const tick = (t) => { window.__frames.push(t - last); last = t; requestAnimationFrame(tick); }; requestAnimationFrame(tick);
+  const tick = (t) => { window.__frames.push(t - last); last = t; if (!window.__busySeen && document.querySelector(".tool.is-busy")) { window.__busySeen = t; } requestAnimationFrame(tick); }; requestAnimationFrame(tick);
   return 'instrumented';
 })()`);
 
@@ -108,7 +108,7 @@ if (action === 'idle') {
 } else {
   // idle baseline first, short
   summarize('idle 3s baseline', await trace(3, async () => {}));
-  await evaluate('window.__sk.length = 0; window.__t0 = performance.now(); 0');
+  await evaluate('window.__sk.length = 0; window.__busySeen = 0; window.__t0 = performance.now(); 0');
   const btn = action === 'paste' ? 'pasteImg' : 'copyFrame';
   const res = await trace(5, async () => { await evaluate(`window.__t0 = performance.now(); document.getElementById('${btn}').click(); 0`); });
   const t0 = await evaluate('window.__t0');
@@ -118,6 +118,8 @@ if (action === 'idle') {
   }
   const firstDom = log.find((e) => e.name.startsWith('DOM'));
   console.log(`\nFIRST VISIBLE CHANGE: ${firstDom ? (firstDom.at - t0).toFixed(0) + ' ms after click' : 'none within window'}`);
+  const seen = await evaluate('window.__busySeen');
+  console.log(`FIRST FRAME WITH THE BUSY PULSE ON SCREEN: ${seen ? (seen - t0).toFixed(0) + ' ms after click' : 'never'}`);
   summarize(`${action} click, 5s window`, res);
   const out = new URL('./trace-' + action + '.json', import.meta.url).pathname; // gitignored
   writeFileSync(out, JSON.stringify({ traceEvents: res.events }));

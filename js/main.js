@@ -141,17 +141,21 @@ const flash = (btn) => mark(btn, 'is-done');
  * until the result comes in (measured 0.4-1 s: Premiere renders the frame and
  * the clipboard process starts). Neither green nor red yet, there is no
  * result to show. A second press while busy is ignored. */
-function busy(btn) {
+async function busy(btn) {
   if (btn.classList.contains('is-busy')) { return false; }
   for (const b of tools) { b.classList.remove('is-done', 'is-err'); }
   btn.classList.add('is-busy');
+  // The class is on the DOM but not on the screen until the next frame, and
+  // createProcess then blocks the thread for ~105 ms: measured, the pulse
+  // showed up 110-140 ms after the click. Wait for that frame to be painted.
+  await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
   return true;
 }
 
 /* Frame under the playhead -> system clipboard. */
 async function copyFrame() {
   const btn = $('copyFrame');
-  if (!busy(btn)) { return; }
+  if (!(await busy(btn))) { return; }
   side = 'copy';
   try {
     // Premiere 15-24 writes the frame to disk; Premiere 25 returns it as
@@ -169,7 +173,7 @@ async function copyFrame() {
 /* Clipboard image -> active sequence. */
 async function pasteImage() {
   const btn = $('pasteImg');
-  if (!busy(btn)) { return; }
+  if (!(await busy(btn))) { return; }
   side = 'paste';
   try {
     // host.jsx picks the folder: next to the .prproj, never the system temp,

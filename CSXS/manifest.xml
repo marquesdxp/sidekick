@@ -23,10 +23,6 @@
           <CEFCommandLine>
             <Parameter>--allow-file-access-from-files</Parameter>
             <Parameter>--allow-file-access</Parameter>
-            <!-- CEP paints panels at 30 fps by default (measured). This is the
-                 CEF switch for its off-screen frame rate; the two "disable"
-                 flags removed the cap entirely and the panel spun at 800 fps. -->
-            <Parameter>--off-screen-frame-rate=144</Parameter>
           </CEFCommandLine>
         </Resources>
         <Lifecycle><AutoVisible>true</AutoVisible></Lifecycle>

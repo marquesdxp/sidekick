@@ -36,10 +36,15 @@ because CEP paints at 30 fps. The delay was PNG encoding plus a blocking wait.
 5. Menu option **High performance** (`cfg.perf`, `body.is-perf`): no glass,
    no lights, no transitions, flat rounded buttons, message as a box over the
    capsule, tap to dismiss, auto-hide 4 s.
-6. `manifest.xml`: `--disable-frame-rate-limit` and `--disable-gpu-vsync`.
-   **Unverified**: the manifest is read at Premiere start, so it needs a full
-   Premiere restart, then `node perf/perf.mjs idle` to see whether rAF goes
-   above 31 fps. If it doesn't on Mac, remove both flags.
+6. Frame-rate cap: tried and rejected. `--disable-frame-rate-limit` +
+   `--disable-gpu-vsync` removed the cap entirely (794 fps, CEF GPU helper at
+   100% CPU idle, still felt stepped). `--off-screen-frame-rate=144` is
+   ignored by CEP (31 fps). The 30 fps cap is Premiere's; nothing left in the
+   manifest. Design for 30 fps.
+7. `busy()` waits for the pulse to be painted (rAF + setTimeout) before the
+   105 ms synchronous `createProcess`; the keyframe starts dim so the first
+   frame is a step. Pulse on screen: 19-29 ms after the click, both buttons,
+   message open or closed. Before: Paste showed nothing for 110-140 ms.
 
 After: first visible change at 1 ms for both buttons. Copy 242 ms total.
 Paste 580 ms total (330 ms is the 4K PNG encode inside osascript, no longer
@@ -55,10 +60,7 @@ Nothing was run on Windows. The specific risks, in order:
    in `sk_qeFrame` and `skExportFrame` in `host.jsx` (three lines).
 2. **`isRunning` on the PowerShell pid**: documented for both platforms. Symptom
    if it misbehaves: "Could not reach the system clipboard." on every click.
-3. **Frame-rate flags**: if the CEF honours them, the ring light and blobs
-   animate unbounded and burn CPU. Check Task Manager on the CEPHtmlEngine
-   process while the panel is idle. If high, remove the two flags.
-4. Windows won't reach 242 ms: PowerShell startup + `Add-Type` is 0.6-1.5 s and
+3. Windows won't reach 242 ms: PowerShell startup + `Add-Type` is 0.6-1.5 s and
    untouched. What changes there is that the panel no longer freezes and the
    button reacts instantly.
 
