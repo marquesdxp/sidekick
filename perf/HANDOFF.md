@@ -209,10 +209,14 @@ per-click osascript, alpha intact.
 - `PS_COPY` puts only a bitmap on the clipboard: a Sidekick frame pasted into
   a browser or Photoshop has no "PNG" format. Frames have no alpha, so it
   only matters for fidelity, not correctness.
-- Windows apps that copy without a "PNG" format (Photoshop, Snipping Tool)
-  hit the `GetImage` fallback, which flattens alpha. A CF_DIBV5 reader via
-  P/Invoke was prototyped and reads the clipboard fine (`Format17` through
-  WinForms `GetData` is unreliable: null in a fresh process), but no source
-  with a real DIBV5 alpha was at hand to verify it, so it is not in the panel.
+- Windows apps that copy without a "PNG" format hit the `GetImage` fallback,
+  which flattens alpha. Photoshop was checked and is a dead end: it hands
+  other processes a 24-bit DIB only (the DIBV5 Windows synthesises has a zero
+  alpha mask), and refuses to render its private "Photoshop DIB Layer" /
+  "Adobe Photoshop Image" formats to another process (Win32
+  `GetClipboardData` returns 0, error 203). Copy Pasta pastes it flattened
+  too. A CF_DIBV5 reader via P/Invoke was prototyped and works (`Format17`
+  through WinForms `GetData` is unreliable: null in a fresh process), but no
+  source with a real DIBV5 alpha turned up, so it is not in the panel.
 - Confirm on Windows that the worker survives hours of idle without the cold
   hit coming back, and check `worker.log` after a slow paste.
