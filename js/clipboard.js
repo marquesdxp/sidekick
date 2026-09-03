@@ -169,14 +169,18 @@ function run(argv) {
   var old = read(pidFile).trim();
   if (old && old !== pid && parent) { try { $.kill(parseInt(old, 10), 15); } catch (e) {} }
   write(pidFile, pid);
+  // A directory listing through the bridge costs ~1.5 ms; access() on one
+  // flag file the panel touches after each job is a fifth of that.
+  var flag = dir + '/job.flag';
+  var pending = function () { if (!$.access) { return true; } if ($.access(flag, 0) !== 0) { return false; } $.unlink(flag); return true; };
   var jobs = function () { var names = ObjC.deepUnwrap(fm.contentsOfDirectoryAtPathError(dir, null)) || []; return names.filter(function (n) { return /^job_.*\.js$/.test(n); }).sort(); };
   log('start (parent ' + parent + ')');
   write(ready, pid);
   var checked = Date.now();
   while (true) {
-    var list = jobs();
+    var list = pending() ? jobs() : [];
     if (!list.length) {
-      delay(0.02);
+      delay(0.05);
       if (Date.now() - checked > 2000) {
         checked = Date.now();
         if (parent && !alive(parent)) { break; }
@@ -190,8 +194,9 @@ function run(argv) {
     if (!/\/\/END\s*$/.test(src)) { delay(0.005); continue; }
     fm.removeItemAtPathError(path, null);
     var t0 = Date.now(), nl = src.indexOf('\n');
-    var sk_path = src.slice(0, nl).trim(), out;
-    try { out = String(eval(src.slice(nl + 1))); } catch (e) { out = 'error: ' + e; }
+    // JXA's eval() can't see function locals: sk_path goes inside the evaluated text.
+    var out;
+    try { out = String(eval('var sk_path = ' + JSON.stringify(src.slice(0, nl).trim()) + ';\n' + src.slice(nl + 1))); } catch (e) { out = 'error: ' + e; }
     write(path.replace(/\.js$/, '.log'), out);
     log('job ' + (Date.now() - t0) + ' ms: ' + out.slice(0, 60));
   }
@@ -238,6 +243,7 @@ async function runInWorker(source, path) {
   const log = `${base}.log`;
   window.cep.fs.deleteFile(log);
   writeText(`${base}${JOB_EXT}`, `${path}\n${source}\n${JOB_END}`);
+  if (isMac) { writeText(`${TMP()}/job.flag`, ''); }
   const t0 = performance.now();
   await new Promise((resolve) => {
     const poll = () => {

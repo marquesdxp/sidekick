@@ -220,3 +220,30 @@ per-click osascript, alpha intact.
   source with a real DIBV5 alpha turned up, so it is not in the panel.
 - Confirm on Windows that the worker survives hours of idle without the cold
   hit coming back, and check `worker.log` after a slow paste.
+
+## Mac test of the resident worker (2026-09-03, M3 Max, Premiere 26.3.2)
+
+Session: https://claude.ai/code/session_01VTt6erU38GoJjgSEGqDYpA
+
+Every job failed with `ReferenceError: Can't find variable: sk_path`: JXA's
+`eval()` does not see the enclosing function's locals (verified with a
+three-line osascript). The worker now prepends `var sk_path = ...;` to the
+evaluated text. Nothing on the Windows path changed.
+
+Idle CPU of the worker was 5% (3% at `delay(0.05)`): the cost is the
+directory listing through the bridge, not the delay. Measured per variant at
+50 ms: listing 2.6%, dir mtime 2.3%, `fileExistsAtPath` 1.3%, libc
+`access()` 0.8%, bare delay 0.5%. The panel now touches `job.flag` after
+each job (Mac only) and the worker only lists when `access()` sees it.
+Idle CPU: 1.2%.
+
+| Result | Number |
+|---|---|
+| worker start -> ready, warm-up paste | ~90 ms, job 35 ms |
+| Paste, browser PNG, clipboard job | 35-60 ms, alpha kept (`sips hasAlpha: yes`) |
+| Copy 4K frame, clipboard job | ~300-320 ms |
+| worker exit after closing the panel | within 2 s, `exit` logged, `worker.ready` removed |
+| worker idle CPU | 1.2% |
+
+All four checks in the list above passed. The branch is verified on both
+platforms.
