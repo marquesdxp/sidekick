@@ -1,7 +1,7 @@
 /* Checks for the byte conversion and the file name: node js/clipboard.test.mjs
  * A failure here corrupts the image silently, which is the worst that can happen. */
 import assert from 'node:assert/strict';
-import { PS_COPY, PS_PASTE, base64ToBlob, blobToBase64, pastedFilename } from './clipboard.js';
+import { JXA_COPY, JXA_PASTE, PS_COPY, PS_PASTE, base64ToBlob, blobToBase64, pastedFilename } from './clipboard.js';
 
 // Real PNG header: high bytes and a 0x00, exactly what breaks a conversion
 // done with strings instead of bytes.
@@ -38,6 +38,13 @@ for (const script of [PS_COPY, PS_PASTE]) {
   assert.ok(script.includes('$sk_path'), 'the script takes its file from $sk_path');
   assert.ok(!/[A-Za-z]:\\|\.png/.test(script), 'no path baked into the script text');
 }
+// macOS: same contract, sk_path in scope, the last expression is the result.
+for (const script of [JXA_COPY, JXA_PASTE]) {
+  assert.ok(script.includes('sk_path'), 'the JXA takes its file from sk_path');
+  assert.ok(!/\/tmp\/|\/[^'"\s]*\.png/.test(script), 'no path baked into the JXA text');
+  assert.match(script, /'ok'[^\n]*;$/, 'ends in the expression that yields ok');
+}
+assert.match(JXA_PASTE, /'no-image '/);
 
 // systemPath: the raw CEP call answers a file:// URI with %20 for spaces. On
 // macOS "Application Support" has one; a %20 left in would break every write.

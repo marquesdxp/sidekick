@@ -171,14 +171,48 @@ it), 763 ms total; was ~1.1 s.
 read it when a paste felt slow. `perf/workers.ps1` lists live workers;
 `perf/job.mjs` sends a timing job straight to the worker.
 
+### macOS resident worker (written on Windows, NOT TESTED on Mac)
+
+Same design in JXA (`WORKER_JXA` in `clipboard.js`): `osascript -l
+JavaScript worker.js /tmp/sidekick` stays up, polls `/tmp/sidekick` for
+`job_*.js` every 20 ms with `delay()`, `eval()`s each job with `sk_path` in
+scope, writes `job_*.log` and `worker.log`. `JXA_COPY` / `JXA_PASTE` are
+constants now (`sk_path`), and `JXA_PASTE` writes the pasteboard's
+`public.png` bytes as they are when there is one (browsers), NSImage
+otherwise. The direct osascript path is unchanged apart from the
+`var sk_path = ...` line prepended, and it is the fallback whenever the worker
+isn't ready.
+
+First thing to do on the Mac, in this order:
+
+1. `sh install.command --link`, open the panel, then `ls /tmp/sidekick` must
+   show `worker.pid`, `worker.ready`, `worker.log` with a `start` line and a
+   `job ... ms: ok` line from the warm-up paste (`warm.png` is deleted after).
+   `ps -p $(cat /tmp/sidekick/worker.pid)` must show osascript.
+2. Paste a transparent PNG copied from Chrome, then Copy a frame and paste it
+   back. Both must be `ok` in `worker.log`, and the pasted PNG must keep alpha.
+3. Close the panel: the osascript process must be gone within ~2 s (parent
+   check via `$.getppid()` / `$.kill(pid, 0)` through the ObjC bridge; if the
+   `unistd`/`signal` import fails the worker only exits when `worker.pid`
+   changes: check `worker.log` says `start (parent <pid>)` with a real pid).
+4. Idle CPU of the osascript process in Activity Monitor: `delay(0.02)` plus
+   a directory listing. If it shows above ~1%, raise the delay to 0.05.
+
+If anything fails there, `warmClipboard()` in `main.js` can be made
+Windows-only again (one `if (isMac) return;`) and the Mac is back to the
+per-click osascript, alpha intact.
+
 ### Still not done
 
 - PNG vs TIFF for frames copied from Premiere: PNG encode is ~400 ms of the
-  445 ms job; TIFF would be ~45 ms, 32 MB per file. User's call.
+  445 ms job on Windows; TIFF would be ~45 ms, 32 MB per file. User's call.
 - `PS_COPY` puts only a bitmap on the clipboard: a Sidekick frame pasted into
   a browser or Photoshop has no "PNG" format. Frames have no alpha, so it
   only matters for fidelity, not correctness.
+- Windows apps that copy without a "PNG" format (Photoshop, Snipping Tool)
+  hit the `GetImage` fallback, which flattens alpha. A CF_DIBV5 reader via
+  P/Invoke was prototyped and reads the clipboard fine (`Format17` through
+  WinForms `GetData` is unreliable: null in a fresh process), but no source
+  with a real DIBV5 alpha was at hand to verify it, so it is not in the panel.
 - Confirm on Windows that the worker survives hours of idle without the cold
   hit coming back, and check `worker.log` after a slow paste.
-- Not tested on Mac: nothing changed in the Mac path, but `runScript` now
-  takes `(source, path)`.

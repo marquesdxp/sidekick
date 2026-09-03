@@ -84,19 +84,24 @@ const exited = (pid) => new Promise((resolve) => {
   poll();
 });
 
-/* --- Windows: one resident PowerShell --------------------------------------
+/* --- One resident script process ------------------------------------------
  *
  * Starting powershell.exe costs ~300 ms warm and up to 5 s after a long pause
- * (measured: the whole delay was the process, the script itself 60 ms). One
- * PowerShell is started when the panel opens, loads .NET once and then runs
- * every job in-process: it watches TMP for job_*.ps1, runs the file, writes
- * job_*.log. It exits when Premiere does or when a newer worker replaces it
- * (worker.pid). While it isn't ready yet, or has died, a job falls back to a
- * fresh process as before, and the worker is started again. */
+ * (measured on Windows: the whole delay was the process, the script itself
+ * 60 ms); osascript pays a start and a JXA compile per click too. One worker
+ * is started when the panel opens, loads its runtime once and then runs
+ * every job in-process: it watches TMP for job_* files, runs each, writes
+ * job_*.log. It exits when the panel does (its parent process) or when a
+ * newer worker replaces it (worker.pid). While it isn't ready yet, or has
+ * died, a job falls back to a fresh process as before, and the worker is
+ * started again. Windows: WORKER_PS. macOS: WORKER_JXA (not yet tested). */
 let worker = null;
-const workerFile = (name) => `${TMP()}\\worker.${name}`;
+const SEP = isMac ? '/' : '\\';
+const JOB_EXT = isMac ? '.js' : '.ps1';
+const JOB_END = isMac ? '//END' : '#END';
+const workerFile = (name) => `${TMP()}${SEP}worker.${name}`;
 
-const WORKER_SRC = String.raw`
+const WORKER_PS = String.raw`
 param([string]$dir)
 $ErrorActionPreference = 'Continue'
 $pidFile = Join-Path $dir 'worker.pid'
@@ -144,41 +149,95 @@ Log "exit"
 Remove-Item -LiteralPath $ready -Force -ErrorAction SilentlyContinue
 `;
 
+/* macOS: the same loop in JXA. osascript keeps AppKit loaded and eval()s
+ * each job with sk_path in scope. delay() polls at 20 ms; a directory
+ * listing of a near-empty folder, so idle cost is small. */
+const WORKER_JXA = String.raw`
+ObjC.import('Foundation'); ObjC.import('AppKit');
+function run(argv) {
+  var dir = String(argv[0]);
+  var fm = $.NSFileManager.defaultManager;
+  var pid = String($.NSProcessInfo.processInfo.processIdentifier);
+  var read = function (p) { var s = $.NSString.stringWithContentsOfFileEncodingError(p, $.NSUTF8StringEncoding, null); return s.isNil() ? '' : ObjC.unwrap(s); };
+  var write = function (p, s) { $(s).writeToFileAtomicallyEncodingError(p, true, $.NSUTF8StringEncoding, null); };
+  var pidFile = dir + '/worker.pid', ready = dir + '/worker.ready', logFile = dir + '/worker.log';
+  var log = function (m) { try { var line = new Date().toISOString().slice(11, 23) + ' ' + pid + ' ' + m + '\n'; var h = $.NSFileHandle.fileHandleForWritingAtPath(logFile); if (h.isNil()) { write(logFile, line); return; } h.seekToEndOfFile; h.writeData($(line).dataUsingEncoding($.NSUTF8StringEncoding)); h.closeFile; } catch (e) {} };
+  if (read(logFile).length > 200000) { fm.removeItemAtPathError(logFile, null); }
+  // libc through the bridge; if the import fails, the pid file check remains.
+  var parent = 0, alive = function () { return true; };
+  try { ObjC.import('unistd'); ObjC.import('signal'); parent = $.getppid(); alive = function (p) { return $.kill(p, 0) === 0; }; } catch (e) {}
+  var old = read(pidFile).trim();
+  if (old && old !== pid && parent) { try { $.kill(parseInt(old, 10), 15); } catch (e) {} }
+  write(pidFile, pid);
+  var jobs = function () { var names = ObjC.deepUnwrap(fm.contentsOfDirectoryAtPathError(dir, null)) || []; return names.filter(function (n) { return /^job_.*\.js$/.test(n); }).sort(); };
+  log('start (parent ' + parent + ')');
+  write(ready, pid);
+  var checked = Date.now();
+  while (true) {
+    var list = jobs();
+    if (!list.length) {
+      delay(0.02);
+      if (Date.now() - checked > 2000) {
+        checked = Date.now();
+        if (parent && !alive(parent)) { break; }
+        if (read(pidFile).trim() !== pid) { break; }
+      }
+      continue;
+    }
+    var path = dir + '/' + list[0];
+    var src = read(path);
+    // The panel writes the file in one go, but not atomically: wait for its last line.
+    if (!/\/\/END\s*$/.test(src)) { delay(0.005); continue; }
+    fm.removeItemAtPathError(path, null);
+    var t0 = Date.now(), nl = src.indexOf('\n');
+    var sk_path = src.slice(0, nl).trim(), out;
+    try { out = String(eval(src.slice(nl + 1))); } catch (e) { out = 'error: ' + e; }
+    write(path.replace(/\.js$/, '.log'), out);
+    log('job ' + (Date.now() - t0) + ' ms: ' + out.slice(0, 60));
+  }
+  log('exit');
+  fm.removeItemAtPathError(ready, null);
+}
+`;
+
 const workerReady = () => !!worker && exists(workerFile('ready'))
   && window.cep.process.isRunning(worker.pid).data === true;
 
-/** Starts the resident PowerShell if it isn't running. Windows only; cheap to call. */
+/** Starts the resident worker if it isn't running. Cheap to call. */
 export function warmClipboard() {
-  if (isMac || workerReady()) { return; }
-  // Still loading .NET (~300 ms): a second start now would only restart it.
+  if (workerReady()) { return; }
+  // Still loading its runtime (~300 ms): a second start now would only restart it.
   if (worker && performance.now() - worker.startedAt < 5000 && window.cep.process.isRunning(worker.pid).data === true) { return; }
-  const script = workerFile('ps1');
-  writeText(script, WORKER_SRC);
+  const script = workerFile(isMac ? 'js' : 'ps1');
+  writeText(script, isMac ? WORKER_JXA : WORKER_PS);
   window.cep.fs.deleteFile(workerFile('ready'));
-  const p = window.cep.process.createProcess(PS, '-STA', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', script, TMP());
+  const p = isMac
+    ? window.cep.process.createProcess('/usr/bin/osascript', '-l', 'JavaScript', script, TMP())
+    : window.cep.process.createProcess(PS, '-STA', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', script, TMP());
   worker = p.err || p.data === undefined ? null : { pid: p.data, startedAt: performance.now() };
-  if (!worker) { console.warn('[Sidekick] resident PowerShell did not start', p); return; }
-  // The first run of a text costs 1.4 s (compile, Defender scan, .NET JIT of
-  // the clipboard code), measured. Paid here, on a throwaway paste into TMP,
-  // not on the first click. Copy isn't warmed: it would overwrite the
-  // clipboard.
+  if (!worker) { console.warn('[Sidekick] resident worker did not start', p); return; }
+  // The first run of a text costs 1.4 s on Windows (compile, Defender scan,
+  // .NET JIT of the clipboard code), measured. Paid here, on a throwaway
+  // paste into TMP, not on the first click. Copy isn't warmed: it would
+  // overwrite the clipboard.
   const warmed = worker;
   const warm = async () => {
     if (worker !== warmed) { return; }
     if (!workerReady()) { setTimeout(warm, 100); return; }
-    const path = `${TMP()}\\warm.png`;
-    await runInWorker(PS_PASTE, path);
+    const path = `${TMP()}${SEP}warm.png`;
+    await runInWorker(isMac ? JXA_PASTE : PS_PASTE, path);
     window.cep.fs.deleteFile(path);
   };
   setTimeout(warm, 100);
 }
 
-/* A job for the worker: the script sets $out; the worker writes it to the log. */
+/* A job for the worker: the script leaves its result ($out on Windows, the
+ * last expression in JXA); the worker writes it to the log. */
 async function runInWorker(source, path) {
-  const base = `${TMP()}\\job_${Date.now()}`;
+  const base = `${TMP()}${SEP}job_${Date.now()}`;
   const log = `${base}.log`;
   window.cep.fs.deleteFile(log);
-  writeText(`${base}.ps1`, `${path}\n${source}\n#END`);
+  writeText(`${base}${JOB_EXT}`, `${path}\n${source}\n${JOB_END}`);
   const t0 = performance.now();
   await new Promise((resolve) => {
     const poll = () => {
@@ -190,28 +249,28 @@ async function runInWorker(source, path) {
     poll();
   });
   const out = readText(log).replace(/^\uFEFF/, '').trim();
-  window.cep.fs.deleteFile(`${base}.ps1`);
+  window.cep.fs.deleteFile(`${base}${JOB_EXT}`);
   window.cep.fs.deleteFile(log);
   console.debug(`[Sidekick] clipboard job ${Math.round(performance.now() - t0)} ms (resident)`);
   return out;
 }
 
 async function runScript(source, path) {
-  if (!isMac) {
-    if (workerReady()) {
-      const out = await runInWorker(source, path);
-      if (out) { return out; }
-    }
-    // Not ready: this click pays the process, the next one won't.
-    warmClipboard();
+  if (workerReady()) {
+    const out = await runInWorker(source, path);
+    if (out) { return out; }
   }
+  // Not ready: this click pays the process, the next one won't.
+  warmClipboard();
   const base = `${TMP()}/sk_${Date.now()}`;
   const script = base + (isMac ? '.js' : '.ps1');
   const log = `${base}.log`;
   // createProcess doesn't redirect. On macOS sh does it; on Windows the .ps1
   // itself writes its result to the log (no cmd in between, which trips over
   // quoted paths). Bypass: the default policy blocks every .ps1.
-  writeText(script, isMac ? source : `$sk_path=${psPath(path)}\n$out='error'\ntry {\n${source}\n} catch { $out=\"error: $_\" }\nSet-Content -LiteralPath ${psPath(log)} -Value $out -Encoding UTF8\n`);
+  writeText(script, isMac
+    ? `var sk_path = ${JSON.stringify(path)};\n${source}`
+    : `$sk_path=${psPath(path)}\n$out='error'\ntry {\n${source}\n} catch { $out=\"error: $_\" }\nSet-Content -LiteralPath ${psPath(log)} -Value $out -Encoding UTF8\n`);
 
   const p = isMac
     ? window.cep.process.createProcess('/bin/sh', '-c', `/usr/bin/osascript -l JavaScript "${script}" >"${log}" 2>&1`)
@@ -234,21 +293,27 @@ async function runScript(source, path) {
 /* macOS: JXA over NSPasteboard, not AppleScript. NSImage reads and writes any
  * format the clipboard holds (PNG, TIFF, PDF, JPEG...) without going through
  * sips, and the script is pure ASCII. Tested outside Premiere both ways; on
- * failure the output carries the types that were there. */
-const JXA_COPY = (path) => [
+ * failure the output carries the types that were there. The file comes in
+ * sk_path, set by the runner (see WORKER_JXA); the last expression is the
+ * result. */
+export const JXA_COPY = [
   "ObjC.import('AppKit');",
   'var pb = $.NSPasteboard.generalPasteboard; pb.clearContents;',
-  `var img = $.NSImage.alloc.initWithContentsOfFile(${JSON.stringify(path)});`,
+  'var img = $.NSImage.alloc.initWithContentsOfFile(sk_path);',
   "img.isNil() ? 'read-failed' : (pb.writeObjects($.NSArray.arrayWithObject(img)) ? 'ok' : 'write-failed');",
 ].join('\n');
 
-const JXA_PASTE = (path) => [
+export const JXA_PASTE = [
   "ObjC.import('AppKit');",
   'var pb = $.NSPasteboard.generalPasteboard;',
-  'var img = $.NSImage.alloc.initWithPasteboard(pb);',
-  "img.isNil() ? 'no-image ' + ObjC.deepUnwrap(pb.types).join(', ')",
+  // A PNG on the pasteboard (browsers put one) is written as it is: alpha
+  // intact and no re-encode. Anything else goes through NSImage as before.
+  "var png = pb.dataForType('public.png');",
+  'var img = png.isNil() ? $.NSImage.alloc.initWithPasteboard(pb) : null;',
+  "!png.isNil() ? (png.writeToFileAtomically(sk_path, true) ? 'ok' : 'write-failed')",
+  "  : img.isNil() ? 'no-image ' + ObjC.deepUnwrap(pb.types).join(', ')",
   // 4 = NSBitmapImageFileTypePNG. Comes out as PNG already, no sips.
-  `  : ($.NSBitmapImageRep.imageRepWithData(img.TIFFRepresentation).representationUsingTypeProperties(4, $()).writeToFileAtomically(${JSON.stringify(path)}, true) ? 'ok' : 'write-failed');`,
+  "  : ($.NSBitmapImageRep.imageRepWithData(img.TIFFRepresentation).representationUsingTypeProperties(4, $()).writeToFileAtomically(sk_path, true) ? 'ok' : 'write-failed');",
 ].join('\n');
 
 /* Windows: System.Drawing and Windows.Forms, present in any PowerShell 5
@@ -280,7 +345,7 @@ export const PS_PASTE = [
 
 /** Puts the image at `path` on the clipboard. Returns the file used. */
 export async function copyFileToClipboard(path) {
-  const out = await runScript(isMac ? JXA_COPY(path) : PS_COPY, path);
+  const out = await runScript(isMac ? JXA_COPY : PS_COPY, path);
   if (out !== 'ok') { throw fail('Could not put the image in the clipboard.', out); }
   return path;
 }
@@ -288,7 +353,7 @@ export async function copyFileToClipboard(path) {
 /** Writes the clipboard image to `path` (PNG). false if there was none. */
 export async function clipboardToFile(path) {
   window.cep.fs.deleteFile(path);
-  const out = await runScript(isMac ? JXA_PASTE(path) : PS_PASTE, path);
+  const out = await runScript(isMac ? JXA_PASTE : PS_PASTE, path);
   if (out.startsWith('no-image')) {
     // What IS there goes to the console: that shows whether Premiere has
     // overwritten the clipboard with its own stuff. "No image" is enough for
