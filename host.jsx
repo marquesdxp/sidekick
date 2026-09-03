@@ -442,9 +442,15 @@ function skImportImage(path, top) {
             // Premiere's default duration is kept.
             next = sk_nextClipStart(track, at);
             gap = next ? next - at : 0;
-            // Two frames of slack: a still snaps to its own frame rate, which
-            // may be coarser than the sequence's. The sliver is filled below.
-            var why = gap ? sk_trimItem(item, gap, frame * 2) : "";
+            // The slack is one frame OF THE STILL, not of the sequence: a still
+            // snaps down to its own timebase (the "indeterminate media"
+            // preference, 25 fps here) whatever the sequence runs at. On a
+            // 60 fps sequence that came to 2.2 sequence frames and two frames
+            // of slack rejected a 52 s gap. 1/20 s covers any timebase down to
+            // 20 fps and is still far from a setter that didn't take (which
+            // reads back 0 or the default still duration). The sliver is
+            // filled below.
+            var why = gap ? sk_trimItem(item, gap, Math.max(frame * 2, 254016000000 / 20)) : "";
             if (why) {
                 return "err\tThe {0} s gap is too short for the image and pasting would eat the next clip. The image is in the Sidekick bin.\t"
                      + (gap / 254016000000).toFixed(2) + "\t" + "gap " + gap + " ticks, frame " + frame + ": " + why;
