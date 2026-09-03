@@ -77,14 +77,16 @@ function sk_native(p) { return (new File(p)).fsName; }
 
 /* QE is Premiere's internal DOM: exportFramePNG has always lived there, also
  * in the versions that removed it from the public DOM. */
+/* TIFF, not PNG: the render is the same, but compressing a 4K frame to PNG
+ * measured 740 ms and writing the TIFF 40 ms. The clipboard reads both. */
 function sk_qeFrame(path) {
     app.enableQE();
     var q = qe.project.getActiveSequence();
     if (!q) { return "QE: no active sequence"; }
-    if (typeof q.exportFramePNG !== "function") { return "QE has no exportFramePNG. QE methods: " + sk_methods(q); }
-    // QE appends ".png" to whatever you give it: pass the path without extension.
-    q.exportFramePNG(q.CTI.timecode, path.replace(/\.png$/, ""));
-    return (new File(path)).exists ? "" : "QE exportFramePNG did not write " + path;
+    if (typeof q.exportFrameTIFF !== "function") { return "QE has no exportFrameTIFF. QE methods: " + sk_methods(q); }
+    // QE appends ".tif" to whatever you give it: pass the path without extension.
+    q.exportFrameTIFF(q.CTI.timecode, path.replace(/\.tif$/, ""));
+    return (new File(path)).exists ? "" : "QE exportFrameTIFF did not write " + path;
 }
 
 /* renderVideoFrameAtTime doesn't document what it returns, and it differs
@@ -122,7 +124,7 @@ function skExportFrame() {
         var last = "";
 
         // QE first: it works on every known version.
-        var qePath = sk_native(dir.fsName + "/frame_" + stamp + ".png");
+        var qePath = sk_native(dir.fsName + "/frame_" + stamp + ".tif");
         try {
             last = sk_qeFrame(qePath);
             if (!last) { return "ok\tpath\t" + qePath + "\t"; }

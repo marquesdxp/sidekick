@@ -77,14 +77,19 @@ function scrambleTo(text, cls) {
  * COPIED goes with it; the bright yellow of the primary stays. */
 let hideTimer = null;
 
+function hide() {
+  clearTimeout(hideTimer);
+  statusEl.className = '';   // fades out with the #status transition
+  bar.className = 'bar';     // and the buttons share the space again
+  for (const b of tools) { b.classList.remove('is-done', 'is-err'); }
+  shown = null;
+}
+
+/* In high performance the message is a box over the buttons: it leaves on its
+ * own sooner, and a tap dismisses it. */
 function scheduleHide() {
   clearTimeout(hideTimer);
-  hideTimer = setTimeout(() => {
-    statusEl.className = '';   // fades out with the #status transition
-    bar.className = 'bar';     // and the buttons share the space again
-    for (const b of tools) { b.classList.remove('is-done', 'is-err'); }
-    shown = null;
-  }, 15_000);
+  hideTimer = setTimeout(hide, cfg.perf ? 4_000 : 15_000);
 }
 
 /* A forced reflow between removing and adding the class: without it the
@@ -109,6 +114,7 @@ function quote(action, cls = '') {
 }
 
 statusEl.addEventListener('click', () => {
+  if (cfg.perf) { hide(); return; }
   if (!shown) { return; }
   showingFilm = !showingFilm;
   scrambleTo(showingFilm ? `🎬 ${shown.film}` : shown.text,
@@ -124,31 +130,46 @@ statusEl.addEventListener('click', () => {
 const tools = [$('copyFrame'), $('pasteImg')];
 
 function mark(btn, cls) {
-  for (const b of tools) { b.classList.remove('is-done', 'is-err', 'is-primary'); }
+  for (const b of tools) { b.classList.remove('is-busy', 'is-done', 'is-err', 'is-primary'); }
   void btn.offsetWidth;
   btn.classList.add(cls, 'is-primary');
 }
 
 const flash = (btn) => mark(btn, 'is-done');
 
+/* The click is answered in the same frame, before any work: the button pulses
+ * until the result comes in (measured 0.4-1 s: Premiere renders the frame and
+ * the clipboard process starts). Neither green nor red yet, there is no
+ * result to show. A second press while busy is ignored. */
+function busy(btn) {
+  if (btn.classList.contains('is-busy')) { return false; }
+  for (const b of tools) { b.classList.remove('is-done', 'is-err'); }
+  btn.classList.add('is-busy');
+  return true;
+}
+
 /* Frame under the playhead -> system clipboard. */
 async function copyFrame() {
+  const btn = $('copyFrame');
+  if (!busy(btn)) { return; }
   side = 'copy';
   try {
     // Premiere 15-24 writes the frame to disk; Premiere 25 returns it as
     // base64 and the panel saves it. host.jsx says which of the two.
     const [kind, raw, data] = await host('skExportFrame');
     if (kind === 'b64') { writeFileBase64(raw, data); }
-    const path = copyFileToClipboard(raw) || raw;
+    const path = (await copyFileToClipboard(raw)) || raw;
     window.cep.fs.deleteFile(raw); // the temp file now lives in the clipboard
     if (path !== raw) { window.cep.fs.deleteFile(path); }
-    flash($('copyFrame'));
+    flash(btn);
     quote('copy');
-  } catch (err) { fail($('copyFrame'), err); }
+  } catch (err) { fail(btn, err); }
 }
 
 /* Clipboard image -> active sequence. */
 async function pasteImage() {
+  const btn = $('pasteImg');
+  if (!busy(btn)) { return; }
   side = 'paste';
   try {
     // host.jsx picks the folder: next to the .prproj, never the system temp,
@@ -157,11 +178,11 @@ async function pasteImage() {
     const path = `${dir}/${pastedFilename('image/png')}`;
     // An empty clipboard is the only thing told with a quote; any other
     // failure is said as it is, which is what helps fixing it.
-    if (!clipboardToFile(path)) { mark($('pasteImg'), 'is-err'); quote('error', 'err'); return; }
+    if (!(await clipboardToFile(path))) { mark(btn, 'is-err'); quote('error', 'err'); return; }
     await host('skImportImage', path, cfg.top ? 1 : 0);
-    flash($('pasteImg'));
+    flash(btn);
     quote('paste');
-  } catch (err) { fail($('pasteImg'), err); }
+  } catch (err) { fail(btn, err); }
 }
 
 /* Failure: the button turns red and the message is translated, as host.jsx
@@ -186,6 +207,12 @@ function toggleTop() { cfg.top = !cfg.top; saveCfg(); paintTop(); menu(); }
 top.addEventListener('click', () => { toggleTop(); top.blur(); });
 paintTop();
 
+/* High performance: no glass, no lights, no transitions; the message is a
+ * plain box over the buttons. One class on <body>, the CSS does the rest. */
+const paintPerf = () => document.body.classList.toggle('is-perf', !!cfg.perf);
+function togglePerf() { cfg.perf = !cfg.perf; saveCfg(); paintPerf(); hide(); menu(); }
+paintPerf();
+
 /* --- Panel menu ----------------------------------------------------------- */
 
 const LANG_LABELS = { en: 'EN', es: 'ES', pt: 'PT-BR' };
@@ -196,6 +223,7 @@ const LANG_LABELS = { en: 'EN', es: 'ES', pt: 'PT-BR' };
 function menu() {
   setFlyoutMenu([
     { id: 'top', label: t('Paste on top'), checked: !!cfg.top },
+    { id: 'perf', label: t('High performance'), checked: !!cfg.perf },
     {
       label: t('Paste folder'),
       children: [
@@ -230,6 +258,7 @@ async function pickDir() {
 
 function onMenu(id) {
   if (id === 'top') { toggleTop(); return; }
+  if (id === 'perf') { togglePerf(); return; }
   if (id === 'dir-default') { delete cfg.dir; saveCfg(); menu(); return; }
   if (id === 'dir-pick') { pickDir(); return; }
   if (id === 'refresh') { location.reload(); return; }

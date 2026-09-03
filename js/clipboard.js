@@ -76,7 +76,15 @@ function readText(path) {
  * reached the panel disguised as "no image in the clipboard". */
 const psPath = (path) => `'${path.replace(/'/g, "''")}'`;
 
-function runScript(source) {
+/* Not cep.process.waitfor: it blocks the panel's thread for as long as the
+ * process runs (measured 160-330 ms for a 4K frame) and freezes every
+ * animation with it. Polling isRunning leaves the panel free. */
+const exited = (pid) => new Promise((resolve) => {
+  const poll = () => (window.cep.process.isRunning(pid).data === true ? setTimeout(poll, 25) : resolve());
+  poll();
+});
+
+async function runScript(source) {
   const base = `${TMP()}/sk_${Date.now()}`;
   const script = base + (isMac ? '.js' : '.ps1');
   const log = `${base}.log`;
@@ -91,7 +99,7 @@ function runScript(source) {
   if (p.err || p.data === undefined) {
     throw fail('Could not reach the system clipboard.', p);
   }
-  window.cep.process.waitfor(p.data);
+  await exited(p.data);
 
   // Set-Content with UTF8 adds a BOM: strip it.
   const out = readText(log).replace(/^\uFEFF/, '').trim();
@@ -142,16 +150,16 @@ export const PS_PASTE = (path) => [
 ].join('\n');
 
 /** Puts the image at `path` on the clipboard. Returns the file used. */
-export function copyFileToClipboard(path) {
-  const out = runScript(isMac ? JXA_COPY(path) : PS_COPY(path));
+export async function copyFileToClipboard(path) {
+  const out = await runScript(isMac ? JXA_COPY(path) : PS_COPY(path));
   if (out !== 'ok') { throw fail('Could not put the image in the clipboard.', out); }
   return path;
 }
 
 /** Writes the clipboard image to `path` (PNG). false if there was none. */
-export function clipboardToFile(path) {
+export async function clipboardToFile(path) {
   window.cep.fs.deleteFile(path);
-  const out = runScript(isMac ? JXA_PASTE(path) : PS_PASTE(path));
+  const out = await runScript(isMac ? JXA_PASTE(path) : PS_PASTE(path));
   if (out.startsWith('no-image')) {
     // What IS there goes to the console: that shows whether Premiere has
     // overwritten the clipboard with its own stuff. "No image" is enough for

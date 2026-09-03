@@ -16,6 +16,8 @@ xcopy /e /i /y /q "%~dp0i18n" "%DEST%\i18n" >nul
 xcopy /e /i /y /q "%~dp0fonts" "%DEST%\fonts" >nul
 copy /y "%~dp0host.jsx"   "%DEST%\" >nul
 copy /y "%~dp0index.html" "%DEST%\" >nul
+REM .debug opens the remote-debugging port (perf/perf.mjs) when PlayerDebugMode is on.
+copy /y "%~dp0.debug"     "%DEST%\" >nul
 
 echo.
 echo Sidekick installed at:
