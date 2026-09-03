@@ -5,3 +5,4 @@
 dist/
 tools/
 *.p12
+perf/trace-*.json

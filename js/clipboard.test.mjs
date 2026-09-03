@@ -1,7 +1,7 @@
 /* Checks for the byte conversion and the file name: node js/clipboard.test.mjs
  * A failure here corrupts the image silently, which is the worst that can happen. */
 import assert from 'node:assert/strict';
-import { PS_COPY, PS_PASTE, base64ToBlob, blobToBase64, pastedFilename } from './clipboard.js';
+import { JXA_COPY, JXA_PASTE, PS_COPY, PS_PASTE, base64ToBlob, blobToBase64, pastedFilename } from './clipboard.js';
 
 // Real PNG header: high bytes and a 0x00, exactly what breaks a conversion
 // done with strings instead of bytes.
@@ -28,12 +28,23 @@ assert.ok(!/[\/\\:*?"<>|]/.test(pastedFilename('image/png', at)), 'valid on-disk
 console.log('clipboard: all checks pass');
 
 // Windows: the panel reads 'ok' / 'no-image' from the output; a silent script
-// reads as "could not reach the clipboard". And quotes are escaped the
-// PowerShell way, by doubling, or a path with an apostrophe breaks the script.
-assert.match(PS_COPY("C:\\a'b.png"), /'C:\\a''b.png'/);
-assert.match(PS_COPY('x.png'), /\n\$out='ok'$/);
-assert.match(PS_PASTE('x.png'), /'no-image '/);
-assert.match(PS_PASTE('x.png'), /;\$out='ok'\}$/);
+// reads as "could not reach the clipboard". The file arrives in $sk_path and
+// the text carries no path of its own: the resident PowerShell compiles a
+// text once, and a text that changed per click cost ~300 ms per click.
+assert.match(PS_COPY, /\n\$out='ok'$/);
+assert.match(PS_PASTE, /'no-image '/);
+assert.match(PS_PASTE, /;\$out='ok'\} \}$/);
+for (const script of [PS_COPY, PS_PASTE]) {
+  assert.ok(script.includes('$sk_path'), 'the script takes its file from $sk_path');
+  assert.ok(!/[A-Za-z]:\\|\.png/.test(script), 'no path baked into the script text');
+}
+// macOS: same contract, sk_path in scope, the last expression is the result.
+for (const script of [JXA_COPY, JXA_PASTE]) {
+  assert.ok(script.includes('sk_path'), 'the JXA takes its file from sk_path');
+  assert.ok(!/\/tmp\/|\/[^'"\s]*\.png/.test(script), 'no path baked into the JXA text');
+  assert.match(script, /'ok'[^\n]*;$/, 'ends in the expression that yields ok');
+}
+assert.match(JXA_PASTE, /'no-image '/);
 
 // systemPath: the raw CEP call answers a file:// URI with %20 for spaces. On
 // macOS "Application Support" has one; a %20 left in would break every write.

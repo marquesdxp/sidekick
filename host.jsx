@@ -77,14 +77,16 @@ function sk_native(p) { return (new File(p)).fsName; }
 
 /* QE is Premiere's internal DOM: exportFramePNG has always lived there, also
  * in the versions that removed it from the public DOM. */
+/* TIFF, not PNG: the render is the same, but compressing a 4K frame to PNG
+ * measured 740 ms and writing the TIFF 40 ms. The clipboard reads both. */
 function sk_qeFrame(path) {
     app.enableQE();
     var q = qe.project.getActiveSequence();
     if (!q) { return "QE: no active sequence"; }
-    if (typeof q.exportFramePNG !== "function") { return "QE has no exportFramePNG. QE methods: " + sk_methods(q); }
-    // QE appends ".png" to whatever you give it: pass the path without extension.
-    q.exportFramePNG(q.CTI.timecode, path.replace(/\.png$/, ""));
-    return (new File(path)).exists ? "" : "QE exportFramePNG did not write " + path;
+    if (typeof q.exportFrameTIFF !== "function") { return "QE has no exportFrameTIFF. QE methods: " + sk_methods(q); }
+    // QE appends ".tif" to whatever you give it: pass the path without extension.
+    q.exportFrameTIFF(q.CTI.timecode, path.replace(/\.tif$/, ""));
+    return (new File(path)).exists ? "" : "QE exportFrameTIFF did not write " + path;
 }
 
 /* renderVideoFrameAtTime doesn't document what it returns, and it differs
@@ -122,7 +124,7 @@ function skExportFrame() {
         var last = "";
 
         // QE first: it works on every known version.
-        var qePath = sk_native(dir.fsName + "/frame_" + stamp + ".png");
+        var qePath = sk_native(dir.fsName + "/frame_" + stamp + ".tif");
         try {
             last = sk_qeFrame(qePath);
             if (!last) { return "ok\tpath\t" + qePath + "\t"; }
@@ -440,9 +442,15 @@ function skImportImage(path, top) {
             // Premiere's default duration is kept.
             next = sk_nextClipStart(track, at);
             gap = next ? next - at : 0;
-            // Two frames of slack: a still snaps to its own frame rate, which
-            // may be coarser than the sequence's. The sliver is filled below.
-            var why = gap ? sk_trimItem(item, gap, frame * 2) : "";
+            // The slack is one frame OF THE STILL, not of the sequence: a still
+            // snaps down to its own timebase (the "indeterminate media"
+            // preference, 25 fps here) whatever the sequence runs at. On a
+            // 60 fps sequence that came to 2.2 sequence frames and two frames
+            // of slack rejected a 52 s gap. 1/20 s covers any timebase down to
+            // 20 fps and is still far from a setter that didn't take (which
+            // reads back 0 or the default still duration). The sliver is
+            // filled below.
+            var why = gap ? sk_trimItem(item, gap, Math.max(frame * 2, 254016000000 / 20)) : "";
             if (why) {
                 return "err\tThe {0} s gap is too short for the image and pasting would eat the next clip. The image is in the Sidekick bin.\t"
                      + (gap / 254016000000).toFixed(2) + "\t" + "gap " + gap + " ticks, frame " + frame + ": " + why;
