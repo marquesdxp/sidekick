@@ -162,9 +162,9 @@ the delay was never where it looked like it was.
 | First visible change, Copy | 1061 ms | 1 ms | ~1000 ms | 0 ms |
 | First visible change, Paste | 110-140 ms | 19-29 ms | 110-140 ms | 3-60 ms |
 | Copy, clipboard ready | 1061 ms | 242 ms | ~1100 ms | 763 ms |
-| Paste, browser PNG, clipboard job | 330 ms | *pending Mac test* | 890 ms | 17-32 ms |
-| Paste, browser PNG, on the timeline | 580 ms | *pending Mac test* | 1260 ms | 180-400 ms |
-| Paste after a long idle | 580 ms | *pending Mac test* | up to 5 s | same as warm |
+| Paste, browser PNG, clipboard job | 330 ms | 35-60 ms | 890 ms | 17-32 ms |
+| Paste, browser PNG, on the timeline | 580 ms | ~400 ms (job + import) | 1260 ms | 180-400 ms |
+| Paste after a long idle | 580 ms | same as warm | up to 5 s | same as warm |
 | Dropped frames during Paste | 0 | 0 | 0 | 0 |
 
 What is left of Paste is Premiere importing the file and refreshing the
