@@ -88,6 +88,7 @@ and choose **Open**.
 ./install.command --link   # symlinks instead of copies: edit, then ≡ → Refresh
 npm test                   # clipboard, i18n, quotes and path checks
 ./build.command            # signs dist/Sidekick-x.y.z.zxp
+node perf/perf.mjs paste   # click-to-pixels timeline inside Premiere (also copy, idle)
 ```
 
 Building the `.zxp` needs `ZXPSignCmd` (from Adobe's
@@ -100,7 +101,9 @@ never committed. The panel's console is at `http://localhost:8099`.
 The clipboard is driven through the operating system, not `navigator.clipboard`:
 JXA over `NSPasteboard` on macOS, PowerShell on Windows, both launched with
 `cep.process`. The CEF embedded in Premiere denies clipboard reads and
-`ClipboardItem` isn't always there.
+`ClipboardItem` isn't always there. One such process stays resident while
+the panel is open and runs each job in-process (see Performance); its log is
+`sidekick/worker.log` in your user data folder.
 
 Pasted files live next to the project and **never in a temp folder**: Premiere
 links to the file forever, and a temp file would eventually go offline.
@@ -113,6 +116,72 @@ tried as fallbacks, and the panel reports what that version offers.
 The default language comes from `navigator.language`, which inside Premiere's
 CEF is **Premiere's** language, not the system's. That's why the menu overrides
 it.
+
+## Performance
+
+Copy and Paste used to feel slow: no visible reaction for a second or more,
+and animations that moved in steps. Everything was measured inside Premiere
+through the panel's remote-debugging port (the scripts are in `perf/`), and
+the delay was never where it looked like it was.
+
+**What was found**
+
+- The animations were not the problem. Premiere's CEF paints at 30 fps
+  whatever the CSS does, so they look stepped; they cost ~5 % of the main
+  thread and drop no frames. The delay was elsewhere.
+- **Copy** spent 740 ms compressing a 4K frame to PNG (the render itself is
+  fast) and then blocked the panel while waiting for the clipboard helper.
+- **Paste on Windows** launched a fresh `powershell.exe` on every click:
+  ~300 ms warm, up to 5 s after a long pause. On top of that, PowerShell
+  compiles (and Defender scans) every *distinct* script text, ~300 ms, and
+  the script text changed on every click because it embedded the file name.
+- A transparent PNG copied from a browser lost its alpha on Windows: the
+  clipboard was read as a flattened bitmap although the original PNG bytes
+  were right there under the `PNG` format.
+
+**What changed**
+
+- The button reacts in the same tick as the click, before any work starts.
+- Frames are exported as TIFF (40 ms) instead of PNG (740 ms) for Copy.
+- The clipboard helper is never awaited synchronously; the panel stays live.
+- One clipboard helper stays resident per panel (PowerShell on Windows,
+  osascript on macOS): started when the panel opens, runtime loaded once,
+  each job runs in-process. It exits with the panel. If it isn't ready, the
+  click falls back to a fresh process, as before.
+- The helper scripts are constant text and receive the file path separately,
+  so they are compiled once.
+- A PNG on the clipboard is written byte for byte: alpha intact, nothing to
+  encode. Other formats go through the OS image APIs as before.
+- **≡ → High performance**: no glass, no lights, no transitions, for
+  machines or sessions where every frame counts.
+
+**Measured** (4K vertical sequence, Premiere 26.3.2; times from the click)
+
+| | Mac, M3 Max, before | Mac, after | Windows, RTX 3080, before | Windows, after |
+|---|---|---|---|---|
+| First visible change, Copy | 1061 ms | 1 ms | ~1000 ms | 0 ms |
+| First visible change, Paste | 110-140 ms | 19-29 ms | 110-140 ms | 3-60 ms |
+| Copy, clipboard ready | 1061 ms | 242 ms | ~1100 ms | 763 ms |
+| Paste, browser PNG, clipboard job | 330 ms | *pending Mac test* | 890 ms | 17-32 ms |
+| Paste, browser PNG, on the timeline | 580 ms | *pending Mac test* | 1260 ms | 180-400 ms |
+| Paste after a long idle | 580 ms | *pending Mac test* | up to 5 s | same as warm |
+| Dropped frames during Paste | 0 | 0 | 0 | 0 |
+
+What is left of Paste is Premiere importing the file and refreshing the
+project, about 350 ms, which the panel can't touch. Copy on Windows is bound
+by GDI+ reading a 33 MB TIFF and serialising it for the clipboard.
+
+**Known limits**
+
+- Photoshop on Windows hands other applications a 24-bit bitmap only and
+  refuses to render its own layer formats to another process, so a layer with
+  transparency pastes flattened. Every other tool has the same limit. Export
+  a PNG, or copy the image from a browser.
+- Frames copied by Sidekick have no `PNG` clipboard format, only a bitmap.
+  Frames have no alpha, so nothing is lost.
+
+`perf/HANDOFF.md` has the full numbers, how to measure again and what was
+tried and rejected (frame-rate flags, TIFF via WIC, DIBV5).
 
 ## Known limits
 
