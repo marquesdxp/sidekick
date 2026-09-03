@@ -140,13 +140,45 @@ node perf/reload.mjs               # Page.reload of the panel after install.bat,
 
 `perf.mjs` trace path fixed for Windows (`fileURLToPath`).
 
+### Resident PowerShell (done, Windows)
+
+"Paste takes forever after a pause" was the process: powershell.exe took up to
+5 s to start cold, and Copy Pasta ships a native `bin/CopyPasta.exe` so it
+never pays it. Sidekick now keeps one PowerShell alive (`WORKER_SRC` in
+`clipboard.js`): started when the panel opens, .NET loaded once, blocks on a
+FileSystemWatcher for `job_*.ps1` in `%APPDATA%\sidekick`, runs the job
+in-process, writes `job_*.log`. Exits when its parent CEPHtmlEngine does or
+when a newer worker writes `worker.pid`. If it isn't ready the click falls
+back to a fresh process as before.
+
+Second finding on the way: PowerShell compiles (and Defender scans) each
+distinct script text once, ~300 ms, then caches it. The job text used to
+embed the timestamped file name, so every click was a new text. `PS_COPY` /
+`PS_PASTE` are now constant strings; the file travels as the job's first line
+into `$sk_path`. A throwaway paste into TMP at start pays the first compile.
+
+| Paste, Windows, warm | before | now |
+|---|---|---|
+| clipboard job, browser PNG (alpha kept) | 890 ms (process + encode) | 17 ms |
+| clipboard job, 4K frame copied by Sidekick | 890 ms | 445 ms (PNG encode, see PNG vs TIFF) |
+| total, browser PNG | 1260 ms | 180-385 ms (Premiere import is the rest) |
+| after a long pause | up to 5 s | same as warm (not yet confirmed over hours) |
+
+Copy: job 670 ms warm (GDI+ reads the 33 MB TIFF, SetDataObject serialises
+it), 763 ms total; was ~1.1 s.
+
+`%APPDATA%\sidekick\worker.log` has one line per job with its duration:
+read it when a paste felt slow. `perf/workers.ps1` lists live workers;
+`perf/job.mjs` sends a timing job straight to the worker.
+
 ### Still not done
 
-- Pre-warming PowerShell: worth ~300 ms warm and the whole 4-5 s cold hit.
-  Plan: a resident `.ps1` with `Add-Type` done, polling for a job file, exits
-  after idle; the panel starts it on open and restarts it if not running.
-- PNG vs TIFF for frames copied from Premiere: TIFF saves ~350 ms, 32 MB per
-  file. User's call.
+- PNG vs TIFF for frames copied from Premiere: PNG encode is ~400 ms of the
+  445 ms job; TIFF would be ~45 ms, 32 MB per file. User's call.
 - `PS_COPY` puts only a bitmap on the clipboard: a Sidekick frame pasted into
   a browser or Photoshop has no "PNG" format. Frames have no alpha, so it
   only matters for fidelity, not correctness.
+- Confirm on Windows that the worker survives hours of idle without the cold
+  hit coming back, and check `worker.log` after a slow paste.
+- Not tested on Mac: nothing changed in the Mac path, but `runScript` now
+  takes `(source, path)`.

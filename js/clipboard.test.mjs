@@ -28,12 +28,16 @@ assert.ok(!/[\/\\:*?"<>|]/.test(pastedFilename('image/png', at)), 'valid on-disk
 console.log('clipboard: all checks pass');
 
 // Windows: the panel reads 'ok' / 'no-image' from the output; a silent script
-// reads as "could not reach the clipboard". And quotes are escaped the
-// PowerShell way, by doubling, or a path with an apostrophe breaks the script.
-assert.match(PS_COPY("C:\\a'b.png"), /'C:\\a''b.png'/);
-assert.match(PS_COPY('x.png'), /\n\$out='ok'$/);
-assert.match(PS_PASTE('x.png'), /'no-image '/);
-assert.match(PS_PASTE('x.png'), /;\$out='ok'\}$/);
+// reads as "could not reach the clipboard". The file arrives in $sk_path and
+// the text carries no path of its own: the resident PowerShell compiles a
+// text once, and a text that changed per click cost ~300 ms per click.
+assert.match(PS_COPY, /\n\$out='ok'$/);
+assert.match(PS_PASTE, /'no-image '/);
+assert.match(PS_PASTE, /;\$out='ok'\} \}$/);
+for (const script of [PS_COPY, PS_PASTE]) {
+  assert.ok(script.includes('$sk_path'), 'the script takes its file from $sk_path');
+  assert.ok(!/[A-Za-z]:\\|\.png/.test(script), 'no path baked into the script text');
+}
 
 // systemPath: the raw CEP call answers a file:// URI with %20 for spaces. On
 // macOS "Application Support" has one; a %20 left in would break every write.

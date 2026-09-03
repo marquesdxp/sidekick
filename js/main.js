@@ -4,7 +4,7 @@
 import { evalScript, extensionPath, host, setFlyoutMenu, systemPath } from './cep.js';
 import { LANGS, applyDom, lang, setLang, t } from './i18n.js';
 import { getPhrase } from './quotes.js';
-import { clipboardToFile, copyFileToClipboard, pastedFilename, writeFileBase64 } from './clipboard.js';
+import { clipboardToFile, copyFileToClipboard, pastedFilename, warmClipboard, writeFileBase64 } from './clipboard.js';
 
 const $ = (id) => document.getElementById(id);
 const statusEl = $('status');
@@ -305,3 +305,5 @@ setLang(cfg.lang);
 applyDom();
 menu();
 reloadHost();
+// Windows: the resident PowerShell loads .NET now, not on the first click.
+warmClipboard();
