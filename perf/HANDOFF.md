@@ -45,6 +45,10 @@ because CEP paints at 30 fps. The delay was PNG encoding plus a blocking wait.
    105 ms synchronous `createProcess`; the keyframe starts dim so the first
    frame is a step. Pulse on screen: 19-29 ms after the click, both buttons,
    message open or closed. Before: Paste showed nothing for 110-140 ms.
+ 8. Paste refused a 52 s gap as "too short" on a 60 fps sequence: the still
+   snaps to the indeterminate-media timebase (25 fps), 2.2 sequence frames
+   short of the gap, past the two-frame slack. Slack is now max(2 frames,
+   1/20 s). Verified on Mac: same spot, pasted.
 
 After: first visible change at 1 ms for both buttons. Copy 242 ms total.
 Paste 580 ms total (330 ms is the 4K PNG encode inside osascript, no longer
